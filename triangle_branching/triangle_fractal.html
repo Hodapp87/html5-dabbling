@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html>
+  <meta charset="UTF-8">
+  <title>Canvas Dabbling</title>
+
+  <div id="canvasContainer">
+    <canvas id="diagonal" style="border: 1px solid;"  width="600" height="600"></canvas>
+    <svg id="svgEmpty" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width=0 height=0></svg>
+  </div>
+  <div id="buttons">
+    <button id="startButton" disabled>Start</button>
+    <button id="stopButton">Stop</button>
+    <button id="svgButton">Make SVG</button>
+    <input type="checkbox" id="branch" checked=true>Branch</input>
+    <input type="checkbox" id="svgAnimate">Animate SVG</input>
+  </div>
+  <input type="range" id="triangles" min=2.0 max=10000.0 step=100.0 value=500.0>Max triangles</input><br/>
+  <input type="range" id="iterScale" min=0.0 max=1.0 step=0.01 value = 0.8>Ratio</input><br/>
+  <input type="range" id="totalScale" min=1.0 max=500.0 step=1.0 value = 200.0>Size</input><br/>
+  <input type="range" id="rotInterval" min=-10.0 max=10.0 step=0.01 value = 2.0>Rotation interval</input><br/>
+  <input type="range" id="rotIntervalRatio" min=-2.0 max=2.0 step=0.05 value = 1.0>Rotation interval ratio</input><br/>
+  <input type="range" id="globalRotSpeed" min=-2.0 max=2.0 step=0.05 value = 0.5>Global rotation speed</input><br/>
+  <label id="fpsDisplay"></p>
+  <script src="triangle_fractal.js"></script>
+  <script>
+
+    console.log("Initializing JavaScript stuff!");
+    var svgNS = "http://www.w3.org/2000/svg";
+    // Populated in onLoad
+    var canvas;
+
+    // Set at every mouse click
+    var mouseX;
+    var mouseY;
+    var mouseClicked;
+
+    // Set every frame
+    var t;
+    var dt; // time delta since last frame
+    var angle1 = 0.0; // radians
+    var angle2 = 0.0; // radians
+    var globalAngle = 0.0; // radians
+    var numIters = 0;
+
+    // Set by sliders
+    var iterScale;
+    var numTriangles;
+    var totalScale;
+    var rotInterval;
+    var rotIntervalRatio;
+    var globalRotSpeed;
+    var branchBool;
+    var runningBool = true;
+    var svgAnimate = false;
+
+    var canvasRender;
+    var svgRender;
+    var intervalId;
+
+    // polyfill courtesy of Paul Irish
+    window.requestAnimFrame = (function(){
+        return window.requestAnimationFrame       ||
+               window.webkitRequestAnimationFrame ||
+               window.mozRequestAnimationFrame    ||
+               function( callback ){
+                   window.setTimeout(callback, 1000 / 60);
+               };
+    })();
+
+    function onLoad() {
+      var time, svg;
+
+      canvas = document.getElementById('diagonal');
+      canvasRender = new CanvasRenderer(canvas);
+      svg = document.getElementById("svgEmpty");
+      svg.setAttributeNS(null, "width", 600);
+      svg.setAttributeNS(null, "height", 600);
+      svgRender = new SvgRenderer(svg);
+
+      // Listeners for mouse: Update mouseX/mouseY only when dragging.
+      canvas.addEventListener("mousedown", function() { mouseClicked = true; }, true);
+      canvas.addEventListener("mouseup", function() { mouseClicked = false; }, true);
+      canvas.addEventListener("mousemove", function(event) {
+        if (mouseClicked) {
+          mouseX = event.clientX;
+          mouseY = event.clientY;
+        }
+      }, true);
+
+      document.getElementById("startButton").onclick = function() {
+        document.getElementById("startButton").disabled = true;
+        document.getElementById("stopButton").disabled = false;
+        runningBool = true;
+      };
+      document.getElementById("stopButton").onclick = function() {
+        document.getElementById("startButton").disabled = false;
+        document.getElementById("stopButton").disabled = true;
+        runningBool = false;
+      };
+
+      document.getElementById("svgButton").onclick = function() {
+        var dlOld;
+        updateRenderer(svgRender);
+        svgRender.render(t, mouseX, mouseY);
+
+        buttons = document.getElementById('buttons');
+        buttons.appendChild(makeDownload(svg, "file.svg", "Download SVG"));
+      };
+
+      mouseX = canvas.width / 2;
+      mouseY = canvas.height / 2;
+      var time = new Date();
+      t0 = time.getTime();
+
+      branchBool = false;
+
+      t = time.getTime();
+
+      //resolveRules(triangleBranchRule);
+
+      window.requestAnimFrame(step);
+    }
+
+    function step() {
+      var time = new Date();
+      var triangleSpeed;
+
+      numTriangles = parseFloat(document.getElementById("triangles").value);
+      iterScale = parseFloat(document.getElementById("iterScale").value);
+      totalScale = parseFloat(document.getElementById("totalScale").value);
+      rotInterval = parseFloat(document.getElementById("rotInterval").value);
+      rotInterval = rotInterval == 0 ? 0.01 : rotInterval;
+      rotIntervalRatio = parseFloat(document.getElementById("rotIntervalRatio").value);
+      rotIntervalRatio = rotIntervalRatio == 0 ? 0.01 : rotIntervalRatio;
+      globalRotSpeed = parseFloat(document.getElementById("globalRotSpeed").value);
+      branchBool = document.getElementById("branch").checked;
+      svgAnimate = document.getElementById("svgAnimate").checked;
+
+      // Iteration N draws 2^(N-1) triangles, so N iterations yields 2^N
+      // triangles; thus N = log2(numTriangles)
+      numIters = branchBool ? Math.floor(Math.log(numTriangles) / Math.log(2)) : numTriangles;
+
+      if (runningBool) {
+        dt = (time.getTime() - t) / 1000;
+        angle1 = (angle1 + dt / rotInterval) % (2 * Math.PI);
+        angle2 = (angle2 + dt / rotInterval / rotIntervalRatio) % (2 * Math.PI);
+	globalAngle = (globalAngle + dt / 5 * globalRotSpeed) % (2*Math.PI);
+        //fpsEl = document.getElementById("fpsDisplay");
+        triangleSpeed = branchBool ? Math.floor(Math.pow(2,numIters) / dt) : numTriangles;
+        //fpsEl.innerHTML = 
+        //console.log("Drawing at " + Math.floor(1/dt) + " fps (" + triangleSpeed + " triangles/s)");
+      } else {
+        dt = 0;
+      }
+      t = time.getTime();
+     
+      //canvasRender.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
+      //canvasRender.drawRule(triangleBranchRule.startRuleRef, numIters);
+
+      if (svgAnimate) {
+        updateRenderer(svgRender);
+        svgRender.render(t, mouseX, mouseY);
+      } else {
+        updateRenderer(canvasRender);
+        canvasRender.render(t, mouseX, mouseY);
+      }
+
+      window.requestAnimFrame(step);
+    }
+
+    function updateRenderer(renderer) {
+      renderer.angle1 = angle1;
+      renderer.angle2 = angle2;
+      renderer.globalAngle = globalAngle;
+      renderer.numIters = numIters;
+      renderer.branch = branchBool;
+      renderer.iterScale = iterScale;
+      renderer.scale = totalScale;
+    }
+
+    window.addEventListener("load", onLoad, true);
+  </script>
+  <body>
+  </body>
+</html>

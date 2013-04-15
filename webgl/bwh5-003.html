@@ -1,0 +1,204 @@
+<!doctype html>
+<html>	
+  <head>
+    <meta charset="UTF-8">
+    <title>WebGL Context</title>
+    <style>
+      body{ background-color: black; }
+      canvas{ background-color: white; }
+    </style>
+    <script src="rAF.js"></script>
+    <script id="shader-vs" type="x-shader/x-vertex">
+      attribute vec3 vertPos;
+      attribute vec3 vertColor;
+      varying highp vec4 vColor;
+
+      void main(void) {
+	  vec3 v = vertPos;
+	  vColor = vec4(vertColor, 1.0);
+          gl_Position = vec4(v, 1.0);
+      }
+      // Vertex shader provides the final vertex location. I think.
+    </script>
+    <script id="shader-fs" type="x-shader/x-fragment">
+      // Fragment shader controls final color, but we cannot pass vertex attrib
+      // data directly to it.
+      varying highp vec4 vColor;
+      void main(void) {
+         gl_FragColor = vColor;
+      }
+    </script>
+    <script>
+      var gl = null,
+          canvas = null,
+          glProgram = null,
+          fragmentShader = null,
+          vertexShader = null;
+      var vertexPosAttrib = null,
+          vertexColAttrib = null,
+          vertBuffer = null;
+      var angle = 0.0;
+
+      function initWebGL()
+      {
+         var canvas = document.getElementById("my-canvas");
+         try {
+            gl = canvas.getContext("webgl") ||
+                 canvas.getContext("experimental-webgl");
+         } catch(e) {
+         }
+         if (gl)
+         {
+             setupWebGL();
+             initShaders();
+             setupBuffers();
+             //drawScene();
+             (function animLoop(){
+                 setupWebGL();
+                 setupDynamicBuffers();
+                 drawScene();
+                 requestAnimationFrame(animLoop, canvas);
+             })();
+         } else {
+             alert( "Error: Your browser does not appear to support WebGL.");
+         }
+      }
+
+      function setupWebGL()
+      {
+          gl.clearColor(0.0, 0.0, 0.0, 1.0);
+          gl.clear(gl.COLOR_BUFFER_BIT);
+      }
+
+      function initShaders()
+      {
+          var fs_source = document.getElementById('shader-fs').innerHTML,
+              vs_source = document.getElementById('shader-vs').innerHTML;
+          
+          // compile shaders
+	  vertexShader = makeShader(vs_source, gl.VERTEX_SHADER);
+	  fragmentShader = makeShader(fs_source, gl.FRAGMENT_SHADER);
+	  
+	  glProgram = gl.createProgram();
+	  
+	  gl.attachShader(glProgram, vertexShader);
+	  gl.attachShader(glProgram, fragmentShader);
+	  gl.linkProgram(glProgram);
+
+	  if (!gl.getProgramParameter(glProgram, gl.LINK_STATUS)) {
+	      alert("Unable to initialize shader program.");
+	  }
+
+	  gl.useProgram(glProgram);
+      }
+
+      function makeShader(src, type)
+      {
+	  var shader = gl.createShader(type);
+	  gl.shaderSource(shader, src);
+	  gl.compileShader(shader);
+
+	  if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+	      alert("Error compiling shader: " + gl.getShaderInfoLog(shader));
+	  }
+	  return shader;
+      }
+      function setupBuffers()
+      {
+          /*
+	  var triangleVertices = [
+	      // left triangle
+	      -0.5, 0.5, 0.0,
+	      0.0, 0.0, 0.0,
+	      -0.5, -0.5, 0.0,
+	      // right triangle
+	      0.5, 0.5, 0.0,
+	      0.0, 0.0, 0.0,
+	      0.5, -0.5, 0.0
+	  ];
+	  vertBuffer = gl.createBuffer();
+	  gl.bindBuffer(gl.ARRAY_BUFFER, vertBuffer);
+	  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(triangleVertices), gl.STATIC_DRAW);
+          */
+
+          /*
+	  var triVertColors = [
+	      // red on left
+	      1.0, 0.0, 0.0,
+	      1.0, 1.0, 1.0,
+	      1.0, 0.0, 0.0,
+	      // blue on right
+	      0.0, 0.0, 1.0,
+	      1.0, 1.0, 1.0,
+	      0.0, 0.0, 1.0
+	  ];
+	  triColBuffer = gl.createBuffer();
+	  gl.bindBuffer(gl.ARRAY_BUFFER, triColBuffer);
+	  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(triVertColors), gl.STATIC_DRAW);
+          */
+      }
+
+      function setupDynamicBuffers()
+      {
+          //limit translation amount to -0.5 to 0.5
+          var dx = Math.sin(angle * 2.7)/2.0;
+          var dy = Math.sin(angle * 2.8)/2.0;
+          
+          var triangleVertices = [
+              //left triangle
+              -0.5 + dx, 0.5 - dy, 0.0,
+              0.0 - dx, 0.0 - dy, 0.0,
+              -0.5 + dx, -0.5 + dy, 0.0,
+              //right triangle
+              0.5 + dx, 0.5 - dy, 0.0,
+              0.0 - dx, 0.0 + dy, 0.0,
+              0.5 - dx, -0.5 + dy, 0.0
+          ];
+          
+          angle += 0.01;
+          
+          vertBuffer = gl.createBuffer();
+          gl.bindBuffer(gl.ARRAY_BUFFER, vertBuffer);
+          gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(triangleVertices), gl.DYNAMIC_DRAW);
+
+          var dr = Math.sin(angle * 3.1)/2.0 + 0.5;
+          var dg = Math.sin(angle * 3.2)/2.0 + 0.5;
+          var db = Math.sin(angle * 3.3)/2.0 + 0.5;
+
+	  var triVertColors = [
+	      // red on left
+	      dr, dg, db,
+	      1.0 - dr, dg, db,
+	      dr, 1.0 - dg, db,
+	      // blue on right
+	      dr, dg, db,
+	      dr, dg, 1.0 - db,
+	      1.0 - dr, 1.0 - dg, db
+	  ];
+	  triColBuffer = gl.createBuffer();
+	  gl.bindBuffer(gl.ARRAY_BUFFER, triColBuffer);
+	  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(triVertColors), gl.DYNAMIC_DRAW);
+      }
+
+      function drawScene()
+      {
+	  vertPosAttrib = gl.getAttribLocation(glProgram, "vertPos");
+	  gl.enableVertexAttribArray(vertPosAttrib);
+	  gl.bindBuffer(gl.ARRAY_BUFFER, vertBuffer);
+	  gl.vertexAttribPointer(vertPosAttrib, 3, gl.FLOAT, false, 0, 0);
+
+	  vertColAttrib = gl.getAttribLocation(glProgram, "vertColor");
+	  gl.enableVertexAttribArray(vertColAttrib);
+	  gl.bindBuffer(gl.ARRAY_BUFFER, triColBuffer);
+	  gl.vertexAttribPointer(vertColAttrib, 3, gl.FLOAT, false, 0, 0);
+
+	  gl.drawArrays(gl.TRIANGLES, 0, 6);
+      }
+    </script>
+  </head>
+  <body onload="initWebGL()">
+    <canvas id="my-canvas" width="400" height="300">
+      Your browser does not support the HTML5 canvas element.
+    </canvas>
+  </body>
+</html>

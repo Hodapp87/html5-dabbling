@@ -1,0 +1,39 @@
+<!doctype html>
+<html>
+    <head>
+        <meta charset="UTF-8">
+        <title>3D Movement</title>
+        <style>
+            body{ background-color: grey; }
+            canvas{ background-color: white; }
+        </style>
+        <script src="rAF.js"></script>
+        <script src="gl-matrix-min.js"></script>
+        <script id="shader-vs" type="x-shader/x-vertex">
+            attribute vec3 aVertexPosition;
+            attribute vec3 aVertexColor;
+			attribute vec2 texPos;
+
+            uniform mat4 uMVMatrix;
+            uniform mat4 uPMatrix;
+  
+            varying highp vec4 vColor;  
+            void main(void) {
+                gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);
+                vColor = vec4(aVertexColor, 1.0);
+            }
+        </script>
+        <script id="shader-fs" type="x-shader/x-fragment">
+            varying highp vec4 vColor;
+            void main(void) {
+               gl_FragColor = vColor;
+            }
+        </script>
+        <script src="3D_movement.js"></script>
+    </head>
+    <body onload="initWebGL()">
+        <canvas id="my-canvas" width="400" height="300">
+        Your browser does not support the HTML5 canvas element.
+        </canvas>
+    </body>
+</html>

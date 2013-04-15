@@ -1,0 +1,153 @@
+<!doctype html>
+<html>	
+  <head>
+    <meta charset="UTF-8">
+    <title>WebGL Context</title>
+    <style>
+      body{ background-color: black; }
+      canvas{ background-color: white; }
+    </style>
+    <script src="rAF.js"></script>
+    <script id="shader-vs" type="x-shader/x-vertex">
+      attribute vec3 vertPos;
+      varying highp vec2 uv;
+      varying highp float tvar;
+      attribute float t;
+
+      void main(void) {
+	  vec3 v = vertPos;
+          gl_Position = vec4(v, 1.0);
+	  tvar = t;
+	  uv = gl_Position.xy;
+      }
+      // Vertex shader provides the final vertex location. I think.
+    </script>
+    <script id="shader-fs" type="x-shader/x-fragment">
+      varying highp vec2 uv;
+      varying highp float tvar;
+
+      void main(void) {
+	  highp float r = (sin(uv.s * (15.0 * sin(tvar * 0.04)) + tvar * 0.1) + 1.0) / 2.0;
+	  highp float g = (sin(uv.t * (13.0 * sin(tvar * 0.035)) + tvar * 0.15) + 1.0) / 2.0;
+	  highp float b = (sin(uv.t * uv.s * (0.4 + tvar * 0.03) * sin(tvar * 0.03)) + 1.0) / 2.0;
+          gl_FragColor = vec4(r, g, b, 1.0);
+      }
+    </script>
+    <script>
+      var gl = null,
+          canvas = null,
+          glProgram = null,
+          fragmentShader = null,
+          vertexShader = null;
+      var vertPosAttrib = null,
+          vertBuffer = null,
+	  timeAttrib = null;
+      var t = 0.0;
+
+      function initWebGL()
+      {
+         var canvas = document.getElementById("my-canvas");
+         try {
+            gl = canvas.getContext("webgl") ||
+                 canvas.getContext("experimental-webgl");
+         } catch(e) {
+         }
+         if (gl)
+         {
+             setupWebGL();
+             initShaders();
+             setupBuffers();
+             //drawScene();
+             (function animLoop(){
+                 setupWebGL();
+                 drawScene();
+                 requestAnimationFrame(animLoop, canvas);
+             })();
+         } else {
+             alert( "Error: Your browser does not appear to support WebGL.");
+         }
+      }
+
+      function setupWebGL()
+      {
+          gl.clearColor(0.0, 0.0, 0.0, 1.0);
+          gl.clear(gl.COLOR_BUFFER_BIT);
+      }
+
+      function initShaders()
+      {
+          var fs_source = document.getElementById('shader-fs').innerHTML,
+              vs_source = document.getElementById('shader-vs').innerHTML;
+          
+          // compile shaders
+	  vertexShader = makeShader(vs_source, gl.VERTEX_SHADER);
+	  fragmentShader = makeShader(fs_source, gl.FRAGMENT_SHADER);
+	  
+	  glProgram = gl.createProgram();
+	  
+	  gl.attachShader(glProgram, vertexShader);
+	  gl.attachShader(glProgram, fragmentShader);
+
+	  // To correct an error I really don't comprehend:
+	  gl.bindAttribLocation(glProgram, 0, "vertPos");
+
+	  gl.linkProgram(glProgram);
+
+	  if (!gl.getProgramParameter(glProgram, gl.LINK_STATUS)) {
+	      alert("Unable to initialize shader program.");
+	  }
+
+	  gl.useProgram(glProgram);
+
+      }
+
+      function makeShader(src, type)
+      {
+	  var shader = gl.createShader(type);
+	  gl.shaderSource(shader, src);
+	  gl.compileShader(shader);
+
+	  if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+	      alert("Error compiling shader: " + gl.getShaderInfoLog(shader));
+	  }
+	  return shader;
+      }
+      function setupBuffers()
+      {
+          var triangleVertices = [
+              //left triangle
+              -1.0, -1.0, 0.0,
+               1.0, -1.0, 0.0,
+              -1.0,  1.0, 0.0,
+              //right triangle
+	       1.0, -1.0, 0.0,
+	      -1.0,  1.0, 0.0,
+	       1.0,  1.0, 0.0	       
+          ];
+          
+          vertBuffer = gl.createBuffer();
+          gl.bindBuffer(gl.ARRAY_BUFFER, vertBuffer);
+          gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(triangleVertices), gl.STATIC_DRAW);
+      }
+
+      function drawScene()
+      {
+	  timeAttrib = gl.getAttribLocation(glProgram, "t");
+	  gl.vertexAttrib1f(timeAttrib, t);
+          t += 1;
+	  
+	  vertPosAttrib = gl.getAttribLocation(glProgram, "vertPos");
+	  gl.enableVertexAttribArray(vertPosAttrib);
+	  gl.bindBuffer(gl.ARRAY_BUFFER, vertBuffer);
+	  gl.vertexAttribPointer(vertPosAttrib, 3, gl.FLOAT, false, 0, 0);
+
+	  gl.drawArrays(gl.TRIANGLES, 0, 6);
+      }
+    </script>
+  </head>
+  <body onload="initWebGL()">
+    <canvas id="my-canvas" width="400" height="400">
+      Your browser does not support the HTML5 canvas element.
+    </canvas>
+  </body>
+</html>
