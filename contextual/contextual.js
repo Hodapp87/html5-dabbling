@@ -8,7 +8,7 @@ function Renderer() {
     this.dy = 1.0;
     this.branch = true;
     this.iterScale = 1.0;
-    this.scale = 100;
+    this.scale = 10000;
 }
 
 Renderer.prototype.render = function(t, cx, cy) {
@@ -165,6 +165,12 @@ function CanvasRenderer(canvasElement) {
     this.triY1 = h * Math.sin(ang1);
     this.triX2 = h * Math.cos(ang2);
     this.triY2 = h * Math.sin(ang2);
+
+    this.scaleMinX = 1;
+    this.scaleMinY = 1;
+    console.log("Received " + this.canvas.width + "x" + this.canvas.height + " canvas.");
+
+    this.maxPrims = 10000;
 }
 
 CanvasRenderer.prototype = new Renderer();
@@ -176,68 +182,55 @@ CanvasRenderer.prototype.primitives.triangle = function(this_) {
                        this_.triX2, this_.triY2);
 };
 
-CanvasRenderer.prototype.render = function(t, cx, cy) {
-    this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
-
+// drawRule: Call drawRuleRecurse with some sane initial values.
+CanvasRenderer.prototype.drawRule = function(rule) {
+    // Set up context
     this.context.strokeStyle = "black";
-    this.context.lineWidth = 1 / this.scale;
 
-    this.context.save();
-    {
-        this.context.translate(cx, cy);
-        this.context.rotate(this.globalAngle);
-        this.context.scale(this.scale, this.scale);
-        this.triangleRecurse(this.numIters);
-    }
-    this.context.restore();
-};
+    this.drawRuleRecurse(rule, this.maxPrims, 1, 1);
+}
 
-// iters: How many iterations to recurse for (note that with branching this
-// is O(2^N)!)
-// elem: Which element receives as a child the elements we create
-CanvasRenderer.prototype.triangleRecurse = function(iters) {
-    if (iters <= 0) {
-        return;
-    }
-
-    this.drawTriangle(0, 0, this.dx, this.dy, -this.dx, this.dy);
-
-    this.context.save();
-    {
-	this.context.translate(branchBool ? this.dx : 0, this.dy);
-	this.context.rotate(-angle1);
-	//var scale = (Math.cos(t / 5) + 1.5) / 3.1;
-	this.context.scale(iterScale, iterScale);
-	this.triangleRecurse(iters - 1);
-	if (branchBool) {
-            this.context.restore();
-            this.context.save();
-            this.context.translate(-this.dx, this.dy);
-            this.context.rotate(angle2);
-            this.context.scale(iterScale, iterScale);
-            this.triangleRecurse(iters - 1);
-	}
-    }
-    this.context.restore();
-};
-
-CanvasRenderer.prototype.drawRule = function(rule, iters) {
-    var i, primFn, childRule, childRuleName, prims = 0;
+// drawRuleRecurse: Pass in a rule, as in, a structure like { name: "foo",
+// children: [ ... ] }, along with a maximum number of primitives to draw, and
+// an overall scale.  This will render that rule, recursing if needed, but
+// halting around the maximum number of primitives or at a certain minimum scale,
+// which ever is reached first.  (this.maxPrims sets the former limit;
+// this.scaleMinX, this.scaleMinY set the latter one)
+// This returns the number of primitives drawn, which may be zero.
+CanvasRenderer.prototype.drawRuleRecurse = function(rule, maxPrims, localScaleX, localScaleY) {
+    var i, primFn, childRule, childRuleName, prims = 0, sample;
+    var more = true;
 
     // Variables to hold transform parameters:
     var scale, trans;
     var scaleX, scaleY, rotate, transX, transY;
     var oldLineWidth;
 
-    if (iters <= 0) {
+    if (localScaleX < this.scaleMinX || localScaleY < this.scaleMinY) {
         return 0;
     }
 
-    // Set up context
-    this.context.strokeStyle = "black";
+    if (rule.isRandom) {
+        sample = Math.random();
+    }
 
-    for (i = 0; i < rule.child.length; ++i) {
+    // If the normal 'select' rule: Just iterate through.
+    // If using 'random': iterate and only execute upon finding the right
+    // cumulative value for the sample.
+    for (i = 0; more && i < rule.child.length; ++i) {
+        
+        if (rule.isRandom) {
+            if (sample > rule.child[i].cumul) {
+                continue;
+            }
+            more = false;
+        }
+
         childRuleName = rule.child[i].rule;
+
+        if (prims > maxPrims) {
+            return prims;
+        }
 
         primFn = this.primitives[childRuleName];
         // If this looks like a primitive, call that function.
@@ -262,6 +255,9 @@ CanvasRenderer.prototype.drawRule = function(rule, iters) {
             rotate = rule.child[i].rotate;
             rotate = rotate ? rotate : 0.0;
 
+            // This section here is the only part that is Canvas-specific, short
+            // of the strokeStyle in drawRule.  What can I do to factor this
+            // out?
             this.context.save();
             oldLineWidth = this.context.lineWidth;
             this.context.lineWidth *= 1 / scaleX;
@@ -270,11 +266,16 @@ CanvasRenderer.prototype.drawRule = function(rule, iters) {
                 this.context.rotate(rotate);
                 this.context.scale(scaleX, scaleY);
 
-                prims += this.drawRule(childRule, iters - 1);
+                // Accumulate local scales, and decrement recursion depth.
+                prims += this.drawRuleRecurse(childRule,
+                                              maxPrims - prims,
+                                              localScaleX * scaleX,
+                                              localScaleY * scaleY);
             }
             this.context.lineWidth = oldLineWidth;
             this.context.restore();
         }
+
     }
     
     return prims;
@@ -372,3 +373,34 @@ function resolveRules(ruleTree) {
 // TODO: Make code to validate well-formedness of the rule tree, e.g. checking
 // that 'scale' has two values
 // TODO: Work primitives into this more seamlessly
+
+function accumProbability(ruleTree) {
+    var i, j, rules, children, total = 0, prob;
+
+    rules = ruleTree.rules;
+    for (i = 0; i < rules.length; ++i) {
+
+        // If 'select' strategy isn't random, don't bother with this rule.
+        if (rules[i].select !== "random") {
+            rules[i].isRandom = false;
+            continue;
+        }
+        rules[i].isRandom = true;
+
+        children = rules[i].child;
+
+        // First, get a total of all probabilities within this rule, and a
+        // cumulative value at each level.
+        for (j = 0; j < children.length; ++j) {
+            prob = children[j].prob;
+            total += prob ? prob : 1;
+            children[j].cumul = total;
+        }
+
+        // Then normalize to [0,1].
+        for (j = 0; j < children.length; ++j) {
+            children[j].cumul /= total;
+        }
+
+    }
+}
