@@ -27,12 +27,17 @@
     var mouseY;
     var mouseClicked;
 
+    var svgDownloadId = "svgDownload";
+
     // Set every frame
     var t;
     var dt; // time delta since last frame
 
+    var grammarParse;
     var canvasRender;
     var svgRender;
+
+    var rule = squareDivide;
 
     function onLoad() {
       var time, svg;
@@ -43,6 +48,7 @@
       svg.setAttributeNS(null, "width", 600);
       svg.setAttributeNS(null, "height", 600);
       svgRender = new SvgRenderer(svg);
+      grammarParse = new GrammarParser(canvasRender);
 
       // Listeners for mouse: Update mouseX/mouseY only when dragging.
       canvas.addEventListener("mousedown", function() { mouseClicked = true; }, true);
@@ -55,19 +61,27 @@
       }, true);
 
       document.getElementById("renderCanvasButton").onclick = function() {
-        console.log("rendering!");
-        step();
+        console.log("rendering Canvas!");
+        step(canvasRender);
+      };
+
+      document.getElementById("renderSvgButton").onclick = function() {
+        console.log("rendering SVG!");
+        step(svgRender);
       };
 
       document.getElementById("svgButton").onclick = function() {
-        updateRenderer(svgRender);
-        svgRender.render(t, mouseX, mouseY);
-
+        var svgLink, buttons;
         buttons = document.getElementById('buttons');
-        while (buttons.firstChild) {
-          buttons.removeChild(buttons.firstChild);
+
+        svgLink = document.getElementById(svgDownloadId);
+        if (svgLink) {
+          buttons.removeChild(svgLink);
         }
-        buttons.appendChild(makeDownload(svg, "file.svg", "Download SVG"));
+
+        svgLink = makeDownload(svg, "file.svg", "Download SVG");
+        svgLink.setAttribute("id", svgDownloadId);
+        buttons.appendChild(svgLink);
       };
 
       mouseX = canvas.width / 2;
@@ -79,18 +93,18 @@
 
       t = time.getTime();
 
-      resolveRules(triangleRandomRule);
-      accumProbability(triangleRandomRule);
+      resolveRules(rule);
+      accumProbability(rule);
     }
 
-    function step() {
+    function step(renderer) {
       var time = new Date();
 
       dt = (time.getTime() - t) / 1000;
       t = time.getTime();
      
-      canvasRender.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
-      canvasRender.drawRule(triangleRandomRule.startRuleRef);
+      grammarParse.renderer = renderer;
+      grammarParse.drawRule(rule.startRuleRef);
 
       //window.requestAnimFrame(step);
     }

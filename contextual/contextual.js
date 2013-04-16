@@ -1,162 +1,193 @@
 function Renderer() {
-    this.angle1 = 0.0;
-    this.angle2 = 0.0;
-    this.globalAngle = 0.0;
-    this.numIters = 0;
-    // dx, dy: Triangle size in X and Y (pre-transform)
-    this.dx = 0.2;
-    this.dy = 1.0;
-    this.branch = true;
-    this.iterScale = 1.0;
-    this.scale = 10000;
 }
-
-Renderer.prototype.render = function(t, cx, cy) {
-    // set t/dt here?
-    // use cx/cy for mouse position?
-    // dispatch to child? or can I even do that here?
-};
 
 function SvgRenderer(svgElement) {
-    this.target = svgElement;
+    var width, height, scale;
+
+    this.svg = svgElement;
     this.ourSvgId = "genSvg";
-    this.ourSvgIdLeft = "genSvgL";
-    this.ourSvgIdRight = "genSvgR";
     this.svgNS = "http://www.w3.org/2000/svg";
-    this.oldBranch = this.branch;
-    this.oldNumIters = this.numIters;
+
+    // transformStr holds the string with the current transform; it accumulates
+    // until a pushTransform.
+    this.transformStr = "";
+
+    width = parseInt(this.svg.getAttribute("width"));
+    height = parseInt(this.svg.getAttribute("height"));
+    this.baseWidth = 50 / (width + height);
+
+    this.initGroup();
 }
+
 SvgRenderer.prototype = new Renderer();
-SvgRenderer.prototype.render = function(t, cx, cy) {
-    var grp, xformMain, dirty;
 
-    grp = this.target.getElementById(this.ourSvgId);
-    dirty = (this.branch != this.oldBranch ||
-             this.numIters != this.oldNumIters ||
-             grp == null);
-
-    // Build the transform
-    xformMain = "translate(" + cx + "," + cy + ") ";
-    xformMain += "rotate(" + (this.globalAngle * 180 / Math.PI) + ") ";
-    xformMain += "scale(" + this.scale + ")";
-
-    if (dirty) {
-        // Delete the older outermost group if we created one
-        if (grp) {
-            this.target.removeChild(grp);
-            grp = null;
-        }
-
-        // Create outermost group for everything
-        grp = document.createElementNS(this.svgNS,"g");
-        grp.setAttributeNS(null, "id", this.ourSvgId);
-        this.target.appendChild(grp);
-        this.triangleRecurse(this.numIters, grp);
-    } else {
-        this.triangleRecurseUpdate(this.numIters, grp);
-    }
-
-    grp.setAttributeNS(null, "transform", xformMain);
-    // Build drawing settings that propagate down
-    grp.setAttributeNS(null, "fill","none");
-    grp.setAttributeNS(null, "stroke-width", 1 / this.scale); 
-    grp.setAttributeNS(null, "stroke", "black"); 
-
-    this.oldBranch = this.branch;
-    this.oldNumIters = this.numIters;
-};
-
-// iters: How many iterations to recurse for (note that with branching this
-// is O(2^N)!)
-// elem: Which element receives as a child the elements we create
-SvgRenderer.prototype.triangleRecurse = function(iters, elem) {
-    var grp, xform, grp2, xform2;
-
-    if (iters <= 0) {
-        return;
-    }
-
-    // Draw one triangle here:
-    this.drawTriangle(0, 0, this.dx, this.dy, -this.dx, this.dy, elem);
-
-    // Start a new group here which holds transforms:
-    grp = document.createElementNS(svgNS,"g");
-    elem.appendChild(grp);
-    //poly.setAttributeNS(null,"id","tri");
-    xform = "translate(" + (this.branch ? this.dx : 0) + "," + this.dy + ") ";
-    xform += "rotate(" + -(this.angle1 * 180 / Math.PI) + ") ";
-    xform += "scale(" + this.iterScale + ")";
-    grp.setAttributeNS(null, "transform", xform);
-    grp.setAttributeNS(null, "id", this.ourSvgIdLeft);
-    this.triangleRecurse(iters - 1, grp);
-
-    if (this.branch) {
-        grp2 = document.createElementNS(svgNS,"g");
-        elem.appendChild(grp2);
-        //poly.setAttributeNS(null,"id","tri");
-        xform = "translate(" + (this.branch ? -this.dx : 0) + "," + this.dy + ") ";
-        xform += "rotate(" + (this.angle2 * 180 / Math.PI) + ") ";
-        xform += "scale(" + this.iterScale + ")";
-        grp2.setAttributeNS(null, "transform", xform);
-	grp2.setAttributeNS(null, "id", this.ourSvgIdRight);
-        this.triangleRecurse(iters - 1, grp2);
-    }
+SvgRenderer.prototype.initGroup = function() {
+    // 'target' is a group that all new elements are attached.
+    // This might not be a great way to go if recursion gets too deep...
+    // We may have to apply transforms directly rather than chain tons of them
+    // together and let the browser sort it out.
+    this.target = document.createElementNS(this.svgNS,"g");
+    this.target.setAttributeNS(null, "id", this.ourSvgId);
+    this.target.setAttributeNS(null, "fill","none");
+    this.target.setAttributeNS(null, "stroke-width", this.baseWidth); 
+    this.target.setAttributeNS(null, "stroke", "black");
+    this.svg.appendChild(this.target);
 };
 
 // Draw a triangle as an SVG element 
-SvgRenderer.prototype.drawTriangle = function(x0, y0, x1, y1, x2, y2, elem) {
+SvgRenderer.prototype.drawTriangle = function(x0, y0, x1, y1, x2, y2) {
     var svgNS, poly, points;
 
-    svgNS = "http://www.w3.org/2000/svg";
-    poly = document.createElementNS(svgNS,"polygon");
+    poly = document.createElementNS(this.svgNS, "polygon");
     points = ""+x0+","+y0+" "+x1+","+y1+" "+x2+","+y2;
     poly.setAttributeNS(null,"points",points);
 
-    elem.appendChild(poly);
+    this.target.appendChild(poly);
 };
 
-// This does what triangleRecurse does, but rather than making new nodes, it
-// updates old ones (as recreating them is unnecessary). 'elem' should be a
-// group element!
-SvgRenderer.prototype.triangleRecurseUpdate = function(iters, elem) {
-    var xform, recurse, children;
+SvgRenderer.prototype.drawSquare = function(x0, y0, x1, y1) {
+    var svgNS, poly, points;
 
-    if (iters <= 0) {
-        return;
-    }
+    poly = document.createElementNS(this.svgNS, "polygon");
+    points = ""+x0+","+y0+" "+x1+","+y0+" "+x1+","+y1+" "+x0+","+y1;
+    poly.setAttributeNS(null,"points",points);
 
-    recurse = false;
-    if (elem.id === this.ourSvgIdLeft) {
-	xform = "translate(" + (this.branch ? this.dx : 0) + "," + this.dy + ") ";
-	xform += "rotate(" + -(this.angle1 * 180 / Math.PI) + ") ";
-	xform += "scale(" + this.iterScale + ")";
-	elem.setAttributeNS(null, "transform", xform);
-        recurse = true;
-    } else if (elem.id == this.ourSvgIdRight) {
-        xform = "translate(" + (this.branch ? -this.dx : 0) + "," + this.dy + ") ";
-        xform += "rotate(" + (this.angle2 * 180 / Math.PI) + ") ";
-        xform += "scale(" + this.iterScale + ")";
-        elem.setAttributeNS(null, "transform", xform);
-        recurse = true;
-    } else if (elem.id == this.ourSvgId) {
-        recurse = true;
-    }
+    this.target.appendChild(poly);
+};
 
-    if (recurse) {
-	children = elem.childNodes;
-        for (var i = 0; i < children.length; i++) {
-            this.triangleRecurseUpdate(iters - 1, children[i]);
-        }
+SvgRenderer.prototype.pushTransform = function() {
+    // The way that we push a transform is to make a group, assign the transform
+    // to that group.
+    var grp;
+    grp = document.createElementNS(this.svgNS,"g");
+    grp.setAttributeNS(null, "transform", this.transformStr);
+    this.target.appendChild(grp);
+
+    // Then set that group as our new target.
+    this.target = grp;
+};
+
+SvgRenderer.prototype.popTransform = function() {
+    // To pop this 'transform' off, we just move our target to the parent node.
+    this.target = this.target.parentNode;
+    if (!this.target) {
+        console.log("SvgRenderer: No transforms left to pop!");
     }
+};
+
+SvgRenderer.prototype.scale = function(scaleX, scaleY) {
+    var oldXform = this.target.getAttribute("transform");
+    oldXform += "scale(" + scaleX + "," + scaleY + ") ";
+    this.target.setAttributeNS(null, "transform", oldXform);
+};
+
+SvgRenderer.prototype.translate = function(transX, transY) {
+    var oldXform = this.target.getAttribute("transform");
+    oldXform += "translate(" + transX + "," + transY + ") ";
+    this.target.setAttributeNS(null, "transform", oldXform);
+};
+
+SvgRenderer.prototype.rotate = function(angleRadians) {
+    var oldXform = this.target.getAttribute("transform");
+    oldXform += "rotate(" + (angleRadians * 180 / Math.PI) + ") ";
+    this.target.setAttributeNS(null, "transform", oldXform);
+};
+
+SvgRenderer.prototype.setStrokeWidth = function(width) {
+    this.target.setAttributeNS(null, "stroke-width", this.baseWidth * width); 
+};
+
+SvgRenderer.prototype.clear = function() {
+    // Look for any SVG element that looks like ours, and get rid of it.
+    var grp = this.svg.getElementById(this.ourSvgId);
+    if (grp) {
+        this.svg.removeChild(grp);
+    }
+    this.initGroup();
 };
 
 function CanvasRenderer(canvasElement) {
     this.canvas = canvasElement;
     this.context = this.canvas.getContext('2d');
+
+    this.baseLineWidth = 50 / (this.canvas.width + this.canvas.height);
+
+    console.log("Received " + this.canvas.width + "x" + this.canvas.height + " canvas.");
+}
+
+CanvasRenderer.prototype = new Renderer();
+
+// Draw a triangle (sidelength = 1, centered at the origin)
+CanvasRenderer.prototype.drawTriangle = function(x0, y0, x1, y1, x2, y2) {
+    this.context.beginPath();
+    this.context.moveTo(x0, y0);
+    this.context.lineTo(x1, y1);
+    this.context.lineTo(x2, y2);
+    this.context.closePath();
+    //context.fillStyle = "rgba(0,1.0,1.0,1.0)";
+    //context.fill();
+    this.context.stroke();
+};
+
+// Draw a square (sidelength = 1, centered at the origin)
+CanvasRenderer.prototype.drawSquare = function(x0, y0, x1, y1) {
+    this.context.beginPath();
+    this.context.moveTo(x0, y0);
+    this.context.lineTo(x0, y1);
+    this.context.lineTo(x1, y1);
+    this.context.lineTo(x1, y0);
+    this.context.closePath();
+    this.context.stroke();
+};
+
+CanvasRenderer.prototype.pushTransform = function() {
+    this.context.save();
+};
+
+CanvasRenderer.prototype.popTransform = function() {
+    this.context.restore();
+};
+
+CanvasRenderer.prototype.scale = function(scaleX, scaleY) {
+    this.context.scale(scaleX, scaleY);
+};
+
+CanvasRenderer.prototype.translate = function(transX, transY) {
+    this.context.translate(transX, transY);
+};
+
+CanvasRenderer.prototype.rotate = function(angleRadians) {
+    this.context.rotate(angleRadians);
+};
+
+CanvasRenderer.prototype.setStrokeWidth = function(width) {
+    this.context.lineWidth = this.baseLineWidth * width;
+};
+
+CanvasRenderer.prototype.clear = function() {
+    this.context.setTransform(1, 0, 0, 1, 0, 0);
+    this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    this.setStrokeWidth(1);
+};
+
+function GrammarParser(renderer) {
+    // You may safely reset this renderer without reinitializing the object.
+    this.renderer = renderer;
+
+    // These two values are the minimum scale before the recursion stops. They
+    // are set to 1 by default, which corresponds to about the size of one
+    // pixel.
+    this.scaleMinX = 1;
+    this.scaleMinY = 1;
+
+    // maxPrims is the (rough) maximum number of primitives to permit any
+    // grammar to draw.
+    this.maxPrims = 10000;
+
     // Some constants for drawing a triangle:
     var s = 1;
-    var h = s * Math.sqrt(3) / 3;
-    var ang0 = 90 * Math.PI / 180;
+    var h = s / Math.sqrt(3);
+    var ang0 = 0 * Math.PI / 180;
     var ang1 = ang0 + 120 * Math.PI / 180;
     var ang2 = ang1 + 120 * Math.PI / 180;
     this.triX0 = h * Math.cos(ang0);
@@ -165,28 +196,26 @@ function CanvasRenderer(canvasElement) {
     this.triY1 = h * Math.sin(ang1);
     this.triX2 = h * Math.cos(ang2);
     this.triY2 = h * Math.sin(ang2);
-
-    this.scaleMinX = 1;
-    this.scaleMinY = 1;
-    console.log("Received " + this.canvas.width + "x" + this.canvas.height + " canvas.");
-
-    this.maxPrims = 10000;
 }
 
-CanvasRenderer.prototype = new Renderer();
+GrammarParser.prototype.primitives = {};
+GrammarParser.prototype.primitives.triangle = function(this_) {
+    this_.renderer.drawTriangle(this_.triX0, this_.triY0,
+                                this_.triX1, this_.triY1,
+                                this_.triX2, this_.triY2);
+};
 
-CanvasRenderer.prototype.primitives = {};
-CanvasRenderer.prototype.primitives.triangle = function(this_) {
-    this_.drawTriangle(this_.triX0, this_.triY0,
-                       this_.triX1, this_.triY1,
-                       this_.triX2, this_.triY2);
+GrammarParser.prototype.primitives.square = function(this_) {
+    this_.renderer.drawSquare(-0.5, -0.5, 0.5, 0.5);
 };
 
 // drawRule: Call drawRuleRecurse with some sane initial values.
-CanvasRenderer.prototype.drawRule = function(rule) {
-    // Set up context
-    this.context.strokeStyle = "black";
+GrammarParser.prototype.drawRule = function(rule) {
+    // this.context.strokeStyle = "black";
 
+    this.renderer.setStrokeWidth(1);
+
+    this.renderer.clear();
     this.drawRuleRecurse(rule, this.maxPrims, 1, 1);
 }
 
@@ -197,14 +226,14 @@ CanvasRenderer.prototype.drawRule = function(rule) {
 // which ever is reached first.  (this.maxPrims sets the former limit;
 // this.scaleMinX, this.scaleMinY set the latter one)
 // This returns the number of primitives drawn, which may be zero.
-CanvasRenderer.prototype.drawRuleRecurse = function(rule, maxPrims, localScaleX, localScaleY) {
+GrammarParser.prototype.drawRuleRecurse = function(rule, maxPrims, localScaleX, localScaleY) {
     var i, primFn, childRule, childRuleName, prims = 0, sample;
     var more = true;
 
     // Variables to hold transform parameters:
     var scale, trans;
     var scaleX, scaleY, rotate, transX, transY;
-    var oldLineWidth;
+    var oldLineWidth = 1, lineWidth = 1;
 
     if (localScaleX < this.scaleMinX || localScaleY < this.scaleMinY) {
         return 0;
@@ -218,6 +247,7 @@ CanvasRenderer.prototype.drawRuleRecurse = function(rule, maxPrims, localScaleX,
     // If using 'random': iterate and only execute upon finding the right
     // cumulative value for the sample.
     for (i = 0; more && i < rule.child.length; ++i) {
+
         
         if (rule.isRandom) {
             if (sample > rule.child[i].cumul) {
@@ -235,6 +265,7 @@ CanvasRenderer.prototype.drawRuleRecurse = function(rule, maxPrims, localScaleX,
         primFn = this.primitives[childRuleName];
         // If this looks like a primitive, call that function.
         if (primFn) {
+            //console.log("Prim");
             prims += 1;
             primFn(this);
         } else {
@@ -255,16 +286,15 @@ CanvasRenderer.prototype.drawRuleRecurse = function(rule, maxPrims, localScaleX,
             rotate = rule.child[i].rotate;
             rotate = rotate ? rotate : 0.0;
 
-            // This section here is the only part that is Canvas-specific, short
-            // of the strokeStyle in drawRule.  What can I do to factor this
-            // out?
-            this.context.save();
-            oldLineWidth = this.context.lineWidth;
-            this.context.lineWidth *= 1 / scaleX;
+            //console.log("Push " + scaleX + "," + scaleY + " +" + transX + "," + transY);
+            this.renderer.setStrokeWidth(lineWidth);
+            this.renderer.pushTransform();
+            oldLineWidth = lineWidth;
+            lineWidth /= scaleX;
             {
-                this.context.translate(transX, transY);
-                this.context.rotate(rotate);
-                this.context.scale(scaleX, scaleY);
+                this.renderer.translate(transX, transY);
+                this.renderer.rotate(rotate);
+                this.renderer.scale(scaleX, scaleY);
 
                 // Accumulate local scales, and decrement recursion depth.
                 prims += this.drawRuleRecurse(childRule,
@@ -272,27 +302,13 @@ CanvasRenderer.prototype.drawRuleRecurse = function(rule, maxPrims, localScaleX,
                                               localScaleX * scaleX,
                                               localScaleY * scaleY);
             }
-            this.context.lineWidth = oldLineWidth;
-            this.context.restore();
+            this.renderer.popTransform();
+            this.renderer.setStrokeWidth(oldLineWidth);
         }
-
     }
     
     return prims;
 }
-
-// Draw a triangle as an SVG element 
-CanvasRenderer.prototype.drawTriangle = function(x0, y0, x1, y1, x2, y2) {
-    this.context.beginPath();
-    this.context.moveTo(x0, y0);
-    this.context.lineTo(x1, y1);
-    this.context.lineTo(x2, y2);
-    this.context.closePath();
-    //context.fillStyle = "rgba(0,1.0,1.0,1.0)";
-    //context.fill();
-    this.context.stroke();
-};
-
 
 // makeDownload: This turns the given element into a string, and then returns
 // a link element that when clicked will download that element, defaulting to
