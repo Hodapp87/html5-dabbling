@@ -12,15 +12,18 @@
     <button id="renderSvgButton">Render SVG</button>
     <button id="svgButton">Download SVG</button>
   </div>
+  <textarea id="javaScriptRule" rows="20" cols="80"></textarea>
   <script src="contextual.js"></script>
   <script src="test_rule.js"></script>
   <script src="rAF.js"></script>
+  <link rel="stylesheet" type="text/css" href="contextual.css"></link>
   <script>
 
     console.log("Initializing JavaScript stuff!");
     var svgNS = "http://www.w3.org/2000/svg";
     // Populated in onLoad
     var canvas;
+    var jsTextArea;
 
     // Set at every mouse click
     var mouseX;
@@ -37,10 +40,16 @@
     var canvasRender;
     var svgRender;
 
-    var rule = squareDivide;
+    var ruleString = "";
+    var rule;
 
     function onLoad() {
       var time, svg;
+
+      canvas = document.getElementById('diagonal');
+      jsTextArea = document.getElementById('javaScriptRule');
+      jsTextArea.value = ruleStringStart;
+      evalRule();
 
       canvas = document.getElementById('diagonal');
       canvasRender = new CanvasRenderer(canvas);
@@ -62,11 +71,13 @@
 
       document.getElementById("renderCanvasButton").onclick = function() {
         console.log("rendering Canvas!");
+        evalRule();
         step(canvasRender);
       };
 
       document.getElementById("renderSvgButton").onclick = function() {
         console.log("rendering SVG!");
+        evalRule();
         step(svgRender);
       };
 
@@ -93,8 +104,17 @@
 
       t = time.getTime();
 
-      resolveRules(rule);
-      accumProbability(rule);
+    }
+
+    // If the rule text has changed, this updates 'rule'.
+    function evalRule() {
+      var currentRuleString = jsTextArea.value;
+      if (ruleString !== currentRuleString) {
+        ruleString = currentRuleString;
+        eval("rule = " + ruleString);
+        resolveRules(rule);
+        accumProbability(rule);
+      }
     }
 
     function step(renderer) {

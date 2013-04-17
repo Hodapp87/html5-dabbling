@@ -42,24 +42,25 @@ var triangleRandomRule = {
         ],
 };
 
-var squareDivide = {
-    startRule: "top",
-    rules: [
-        { name: "top",
-          child: [{ rule: "sq", scale: [600, 600], translate: [300, 300]}]},
-        { name: "sq",
-          child: [{ rule: "square" },
-                  { rule: "divide", rotate: -0.1 }]},
-        { name: "divide",
-          select: "random",
-          child: [{rule: "sq", scale: [0.75, 0.75], translate: [-0.25, -0.25], rotate: 0.5 },
-                  {rule: "sq", scale: [0.6, 0.6], translate: [0.25, -0.25], rotate: -0.5 },
-                  {rule: "sq", scale: [0.4, 0.4], translate: [-0.25, 0.25], rotate: 0.5 },
-                  {rule: "sq", scale: [0.85, 0.85], translate: [0.25, 0.25], rotate: -0.2 },
-                  {rule: "double"}]},
-        { name: "double",
-          child: [{rule: "divide"},
-                  {rule: "divide", rotate: 3.14/2}] }
-          
-        ]
-};
+var ruleStringStart = '{ \n\
+    startRule: "top", \n\
+    rules: [ \n\
+        { name: "top", \n\
+          child: [{ rule: "sq", scale: [600, 600], translate: [300, 300]}]}, \n\
+        { name: "sq", \n\
+          child: [{ rule: "square" }, \n\
+                  { rule: "divide", rotate: -0.1 }]}, \n\
+        { name: "divide", \n\
+          select: "random", \n\
+          child: [{rule: "sq", scale: [0.75, 0.75], translate: [-0.25, -0.25], rotate: 0.5 }, \n\
+                  {rule: "sq", scale: [0.6, 0.6], translate: [0.25, -0.25], rotate: -0.5 }, \n\
+                  {rule: "sq", scale: [0.4, 0.4], translate: [-0.25, 0.25], rotate: 0.5 }, \n\
+                  {rule: "sq", scale: [0.85, 0.85], translate: [0.25, 0.25], rotate: -0.2 }, \n\
+                  {rule: "double"}]}, \n\
+        { name: "double", \n\
+          child: [{rule: "divide"}, \n\
+                  {rule: "divide", rotate: 3.14/2}] } \n\
+          \n\
+        ] \n\
+}; \n\
+';
