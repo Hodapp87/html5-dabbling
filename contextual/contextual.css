@@ -1,0 +1,17 @@
+#javaScriptRule {
+    font-family: monospace;
+}
+
+body {
+    background-color: #000000;
+}
+
+.render {
+    background-color: #ffffff;
+    //width: 600px;
+    //height: 600px;
+}
+
+#svgRender {
+    display: none;
+}

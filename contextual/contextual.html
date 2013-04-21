@@ -3,10 +3,8 @@
   <meta charset="UTF-8">
   <title>Canvas Dabbling</title>
 
-  <div id="canvasContainer">
-    <canvas id="diagonal" style="border: 1px solid;"  width="600" height="600"></canvas>
-    <svg id="svgEmpty" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width=0 height=0></svg>
-  </div>
+  <canvas class="render" id="canvasRender" width="600" height="600"></canvas>
+  <svg class="render" id="svgRender" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="600" height="600"></svg>
   <div id="buttons">
     <button id="renderCanvasButton">Render Canvas</button>
     <button id="renderSvgButton">Render SVG</button>
@@ -44,18 +42,20 @@
     var rule;
 
     function onLoad() {
-      var time, svg;
+      var time, svg, style;
 
-      canvas = document.getElementById('diagonal');
       jsTextArea = document.getElementById('javaScriptRule');
       jsTextArea.value = ruleStringStart;
       evalRule();
 
-      canvas = document.getElementById('diagonal');
+      canvas = document.getElementById('canvasRender');
+      /*style = window.getComputedStyle(canvas);
+      canvas.width = style.width;
+      canvas.height = style.height;*/
       canvasRender = new CanvasRenderer(canvas);
-      svg = document.getElementById("svgEmpty");
-      svg.setAttributeNS(null, "width", 600);
-      svg.setAttributeNS(null, "height", 600);
+      svg = document.getElementById("svgRender");
+      //svg.setAttributeNS(null, "width", 600);
+      //svg.setAttributeNS(null, "height", 600);
       svgRender = new SvgRenderer(svg);
       grammarParse = new GrammarParser(canvasRender);
 
@@ -71,12 +71,18 @@
 
       document.getElementById("renderCanvasButton").onclick = function() {
         console.log("rendering Canvas!");
+        // Make SVG invisible, and Canvas visible:
+        svg.style.display = "none";
+        canvas.style.display = "inline";
         evalRule();
         step(canvasRender);
       };
 
       document.getElementById("renderSvgButton").onclick = function() {
         console.log("rendering SVG!");
+        // Make Canvas invisible, and SVG visible:
+        svg.style.display = "inline";
+        canvas.style.display = "none";
         evalRule();
         step(svgRender);
       };
