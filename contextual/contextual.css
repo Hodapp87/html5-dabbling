@@ -1,15 +1,52 @@
-#javaScriptRule {
-    font-family: monospace;
+* {
+    /*outline: 1px dashed blue;*/
+} 
+
+body {
+    background-color: #A0A0A0;
+}
+
+#buttons {
+    display: block;
+    clear: left;
+    padding-bottom: 10px;
+    /*background-color: white;*/
+}
+
+#downloadLinks {
+    display: block;
+    clear: left;
+}
+
+codeMirror {
+    clear: left;
+}
+
+#mirrorAndButtons {
+    /*border: 1px solid black;*/
+    display: inline-block;
+    width: 50%;
+    height: 100%;
+    /*position: absolute;*/
+    /*top: 0px;*/
+    float: left;
 }
 
 body {
-    background-color: #000000;
+    /*background-color: #000000;*/
 }
 
 .render {
+    display: inline-block;
     background-color: #ffffff;
     //width: 600px;
     //height: 600px;
+    border: 1px solid black;
+    float: left;
+}
+
+#canvasRender {
+    display: inline-block;
 }
 
 #svgRender {

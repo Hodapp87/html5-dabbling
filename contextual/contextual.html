@@ -1,142 +1,32 @@
 <!DOCTYPE html>
 <html>
-  <meta charset="UTF-8">
-  <title>Canvas Dabbling</title>
+  <head>
+    <meta charset="UTF-8">
+    <title>Canvas Dabbling</title>
 
-  <canvas class="render" id="canvasRender" width="600" height="600"></canvas>
-  <svg class="render" id="svgRender" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="600" height="600"></svg>
-  <div id="buttons">
-    <button id="renderCanvasButton">Render Canvas</button>
-    <button id="renderSvgButton">Render SVG</button>
-    <button id="svgButton">Download SVG</button>
-  </div>
-  <textarea id="javaScriptRule" rows="20" cols="80"></textarea>
-  <script src="contextual.js"></script>
-  <script src="test_rule.js"></script>
-  <script src="rAF.js"></script>
-  <link rel="stylesheet" type="text/css" href="contextual.css"></link>
-  <script>
-
-    console.log("Initializing JavaScript stuff!");
-    var svgNS = "http://www.w3.org/2000/svg";
-    // Populated in onLoad
-    var canvas;
-    var jsTextArea;
-
-    // Set at every mouse click
-    var mouseX;
-    var mouseY;
-    var mouseClicked;
-
-    var svgDownloadId = "svgDownload";
-
-    // Set every frame
-    var t;
-    var dt; // time delta since last frame
-
-    var grammarParse;
-    var canvasRender;
-    var svgRender;
-
-    var ruleString = "";
-    var rule;
-
-    function onLoad() {
-      var time, svg, style;
-
-      jsTextArea = document.getElementById('javaScriptRule');
-      jsTextArea.value = ruleStringStart;
-      evalRule();
-
-      canvas = document.getElementById('canvasRender');
-      /*style = window.getComputedStyle(canvas);
-      canvas.width = style.width;
-      canvas.height = style.height;*/
-      canvasRender = new CanvasRenderer(canvas);
-      svg = document.getElementById("svgRender");
-      //svg.setAttributeNS(null, "width", 600);
-      //svg.setAttributeNS(null, "height", 600);
-      svgRender = new SvgRenderer(svg);
-      grammarParse = new GrammarParser(canvasRender);
-
-      // Listeners for mouse: Update mouseX/mouseY only when dragging.
-      canvas.addEventListener("mousedown", function() { mouseClicked = true; }, true);
-      canvas.addEventListener("mouseup", function() { mouseClicked = false; }, true);
-      canvas.addEventListener("mousemove", function(event) {
-        if (mouseClicked) {
-          mouseX = event.clientX;
-          mouseY = event.clientY;
-        }
-      }, true);
-
-      document.getElementById("renderCanvasButton").onclick = function() {
-        console.log("rendering Canvas!");
-        // Make SVG invisible, and Canvas visible:
-        svg.style.display = "none";
-        canvas.style.display = "inline";
-        evalRule();
-        step(canvasRender);
-      };
-
-      document.getElementById("renderSvgButton").onclick = function() {
-        console.log("rendering SVG!");
-        // Make Canvas invisible, and SVG visible:
-        svg.style.display = "inline";
-        canvas.style.display = "none";
-        evalRule();
-        step(svgRender);
-      };
-
-      document.getElementById("svgButton").onclick = function() {
-        var svgLink, buttons;
-        buttons = document.getElementById('buttons');
-
-        svgLink = document.getElementById(svgDownloadId);
-        if (svgLink) {
-          buttons.removeChild(svgLink);
-        }
-
-        svgLink = makeDownload(svg, "file.svg", "Download SVG");
-        svgLink.setAttribute("id", svgDownloadId);
-        buttons.appendChild(svgLink);
-      };
-
-      mouseX = canvas.width / 2;
-      mouseY = canvas.height / 2;
-      var time = new Date();
-      t0 = time.getTime();
-
-      branchBool = false;
-
-      t = time.getTime();
-
-    }
-
-    // If the rule text has changed, this updates 'rule'.
-    function evalRule() {
-      var currentRuleString = jsTextArea.value;
-      if (ruleString !== currentRuleString) {
-        ruleString = currentRuleString;
-        eval("rule = " + ruleString);
-        resolveRules(rule);
-        accumProbability(rule);
-      }
-    }
-
-    function step(renderer) {
-      var time = new Date();
-
-      dt = (time.getTime() - t) / 1000;
-      t = time.getTime();
-     
-      grammarParse.renderer = renderer;
-      grammarParse.drawRule(rule.startRuleRef);
-
-      //window.requestAnimFrame(step);
-    }
-
-    window.addEventListener("load", onLoad, true);
-  </script>
+    <script src="contextual.js"></script>
+    <script src="test_rule.js"></script>
+    <script src="rAF.js"></script>
+    <link rel="stylesheet" type="text/css" href="contextual.css"/>
+  </head>
   <body>
+    <!-- Next three elements are all from CodeMirror: -->
+    <script src="codemirror.js"></script>
+    <link rel="stylesheet" href="codemirror.css">
+    <script src="codemirror-javascript-mode.js"></script>
+
+    <script src="main.js"></script>
+
+    <canvas class="render" id="canvasRender" width="600" height="600"></canvas>
+    <svg class="render" id="svgRender" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="600" height="600"></svg>
+    <div id="mirrorAndButtons">
+      <div id="buttons">
+	<button id="renderCanvasButton">Render Canvas</button>
+	<button id="renderSvgButton">Render SVG</button>
+	<button id="svgButton">Download SVG</button>
+      </div>
+      <div id="codeMirror"></div>
+      <div id="downloadLinks"></div>
+    </div>
   </body>
 </html>
