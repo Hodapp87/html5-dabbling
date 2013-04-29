@@ -1,174 +1,59 @@
-function Renderer() {
-}
+"use strict";
+// - New primitives: Line? Dot?
+// - New primitive, hard mode: A recursive reference to another grammar?
+// - New primitive, super hard mode: A function generating pixel values?
+// 
 
-function SvgRenderer(svgElement) {
-    var width, height, scale;
+function Renderer() { }
+// Renderer.drawTriangle(x0, y0, x1, y1, x2, y2):
+//     Draw a triangle with vertices at (x0,y0), (x1, y1), (x2, y2). Note that
+//     the real coordinates are determined by whatever local transform is in use.
 
-    this.svg = svgElement;
-    this.ourSvgId = "genSvg";
-    this.svgNS = "http://www.w3.org/2000/svg";
+// Renderer.drawSquare(x0, y0, x1, y1):
+//     Draw a square with corners (x0,y0), (x1, y1).  As in drawTriangle, the
+//     current transforms still apply to these coordinates.
 
-    // transformStr holds the string with the current transform; it accumulates
-    // until a pushTransform.
-    this.transformStr = "";
+// Renderer.pushTransform():
+//     Whatever the current transform is (scale/translate/rotate), push this
+//     state on the transform stack so 'popTransform' may bring it back.
 
-    width = parseInt(this.svg.getAttribute("width"));
-    height = parseInt(this.svg.getAttribute("height"));
-    this.baseWidth = 50 / (width + height);
+// Renderer.popTransform():
+//     Discard the last set of transformations, and return to the state at the
+//     time of the last pushTransform().
 
-    this.initGroup();
-}
+// Renderer.scale(scaleX, scaleY):
+//     Scale the current coordinate system by the given factor in X and Y.
+//     Setting either one to zero is liable to get you in a bad state.
 
-SvgRenderer.prototype = new Renderer();
+// Renderer.translate(transX, transY):
+//     Translate the current coordinate system by the given amount in each
+//     axis.
 
-SvgRenderer.prototype.initGroup = function() {
-    // 'target' is a group that all new elements are attached.
-    // This might not be a great way to go if recursion gets too deep...
-    // We may have to apply transforms directly rather than chain tons of them
-    // together and let the browser sort it out.
-    this.target = document.createElementNS(this.svgNS,"g");
-    this.target.setAttributeNS(null, "id", this.ourSvgId);
-    this.target.setAttributeNS(null, "fill","none");
-    this.target.setAttributeNS(null, "stroke-width", this.baseWidth); 
-    this.target.setAttributeNS(null, "stroke", "black");
-    this.svg.appendChild(this.target);
-};
+// Renderer.translate(angle):
+//     Rotate the current coordinate system clockwise by the given angle in
+//     radians.
 
-// Draw a triangle as an SVG element 
-SvgRenderer.prototype.drawTriangle = function(x0, y0, x1, y1, x2, y2) {
-    var svgNS, poly, points;
+// Renderer.setStrokeWidth(width):
+//     Set the stroke width, which applies to the edges of primitives.
+//     TODO: Figure out what the units on this are.
 
-    poly = document.createElementNS(this.svgNS, "polygon");
-    points = ""+x0+","+y0+" "+x1+","+y1+" "+x2+","+y2;
-    poly.setAttributeNS(null,"points",points);
+// Renderer.setStrokeColor(r, g, b, alpha):
+//     r, g, b, and alpha are all floats from 0 to 1. 'alpha' is optional.
+//     Set the stroke color for any shape drawn, as an RGB value with optional
+//     alpha; if alpha is left out, it is assumed as 1 (full opacity).
 
-    this.target.appendChild(poly);
-};
+// Renderer.setFillColor(r, g, b, alpha):
+//     Set the fill color for any shape drawn. Conventions here are the same as
+//     setStrokeColor.
 
-SvgRenderer.prototype.drawSquare = function(x0, y0, x1, y1) {
-    var svgNS, poly, points;
-
-    poly = document.createElementNS(this.svgNS, "polygon");
-    points = ""+x0+","+y0+" "+x1+","+y0+" "+x1+","+y1+" "+x0+","+y1;
-    poly.setAttributeNS(null,"points",points);
-
-    this.target.appendChild(poly);
-};
-
-SvgRenderer.prototype.pushTransform = function() {
-    // The way that we push a transform is to make a group, assign the transform
-    // to that group.
-    var grp;
-    grp = document.createElementNS(this.svgNS,"g");
-    grp.setAttributeNS(null, "transform", this.transformStr);
-    this.target.appendChild(grp);
-
-    // Then set that group as our new target.
-    this.target = grp;
-};
-
-SvgRenderer.prototype.popTransform = function() {
-    // To pop this 'transform' off, we just move our target to the parent node.
-    this.target = this.target.parentNode;
-    if (!this.target) {
-        console.log("SvgRenderer: No transforms left to pop!");
-    }
-};
-
-SvgRenderer.prototype.scale = function(scaleX, scaleY) {
-    var oldXform = this.target.getAttribute("transform");
-    oldXform += "scale(" + scaleX + "," + scaleY + ") ";
-    this.target.setAttributeNS(null, "transform", oldXform);
-};
-
-SvgRenderer.prototype.translate = function(transX, transY) {
-    var oldXform = this.target.getAttribute("transform");
-    oldXform += "translate(" + transX + "," + transY + ") ";
-    this.target.setAttributeNS(null, "transform", oldXform);
-};
-
-SvgRenderer.prototype.rotate = function(angleRadians) {
-    var oldXform = this.target.getAttribute("transform");
-    oldXform += "rotate(" + (angleRadians * 180 / Math.PI) + ") ";
-    this.target.setAttributeNS(null, "transform", oldXform);
-};
-
-SvgRenderer.prototype.setStrokeWidth = function(width) {
-    this.target.setAttributeNS(null, "stroke-width", this.baseWidth * width); 
-};
-
-SvgRenderer.prototype.clear = function() {
-    // Look for any SVG element that looks like ours, and get rid of it.
-    var grp = this.svg.getElementById(this.ourSvgId);
-    if (grp) {
-        this.svg.removeChild(grp);
-    }
-    this.initGroup();
-};
-
-function CanvasRenderer(canvasElement) {
-    this.canvas = canvasElement;
-    this.context = this.canvas.getContext('2d');
-
-    this.baseLineWidth = 50 / (this.canvas.width + this.canvas.height);
-
-    console.log("Received " + this.canvas.width + "x" + this.canvas.height + " canvas.");
-}
-
-CanvasRenderer.prototype = new Renderer();
-
-// Draw a triangle (sidelength = 1, centered at the origin)
-CanvasRenderer.prototype.drawTriangle = function(x0, y0, x1, y1, x2, y2) {
-    this.context.beginPath();
-    this.context.moveTo(x0, y0);
-    this.context.lineTo(x1, y1);
-    this.context.lineTo(x2, y2);
-    this.context.closePath();
-    //context.fillStyle = "rgba(0,1.0,1.0,1.0)";
-    //context.fill();
-    this.context.stroke();
-};
-
-// Draw a square (sidelength = 1, centered at the origin)
-CanvasRenderer.prototype.drawSquare = function(x0, y0, x1, y1) {
-    this.context.beginPath();
-    this.context.moveTo(x0, y0);
-    this.context.lineTo(x0, y1);
-    this.context.lineTo(x1, y1);
-    this.context.lineTo(x1, y0);
-    this.context.closePath();
-    this.context.stroke();
-};
-
-CanvasRenderer.prototype.pushTransform = function() {
-    this.context.save();
-};
-
-CanvasRenderer.prototype.popTransform = function() {
-    this.context.restore();
-};
-
-CanvasRenderer.prototype.scale = function(scaleX, scaleY) {
-    this.context.scale(scaleX, scaleY);
-};
-
-CanvasRenderer.prototype.translate = function(transX, transY) {
-    this.context.translate(transX, transY);
-};
-
-CanvasRenderer.prototype.rotate = function(angleRadians) {
-    this.context.rotate(angleRadians);
-};
-
-CanvasRenderer.prototype.setStrokeWidth = function(width) {
-    this.context.lineWidth = this.baseLineWidth * width;
-};
-
-CanvasRenderer.prototype.clear = function() {
-    this.context.setTransform(1, 0, 0, 1, 0, 0);
-    this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
-    this.setStrokeWidth(1);
-};
+// Renderer.clear(r, g, b):
+//     r, g, b are all optional floats from 0 to 1.
+//     Reset basically all state of this renderer. That includes:
+//      - Clearing everything that has been drawn, and filling with the given
+//        RGB color (or white if not given)
+//      - Clearing out any transforms.
+//      - Resetting stroke width to its default.
+//      - Resetting stroke color to black, and fill color to white.
 
 function GrammarParser(renderer) {
     // You may safely reset this renderer without reinitializing the object.
@@ -209,14 +94,30 @@ GrammarParser.prototype.primitives.square = function(this_) {
     this_.renderer.drawSquare(-0.5, -0.5, 0.5, 0.5);
 };
 
-// drawRule: Call drawRuleRecurse with some sane initial values.
-GrammarParser.prototype.drawRule = function(rule) {
+// drawRule: Call drawRuleRecurse with some sane initial values, starting from
+// a given grammar.
+GrammarParser.prototype.drawRule = function(grammar) {
+    var bgColorHsv, bgColorRgb, f;
     // this.context.strokeStyle = "black";
+
+    // To correct between the range used in Colors.js (0-255) and in Canvas
+    // (0-1) we precompute this scale factor.
+    f = 1 / 255;
 
     this.renderer.setStrokeWidth(1);
 
-    this.renderer.clear();
-    this.drawRuleRecurse(rule, this.maxPrims, 1, 1);
+    // Set the background color (white if not given)
+    bgColorHsv = grammar.background;
+    if (bgColorHsv) {
+        bgColorRgb = Colors.hsv2rgb(bgColorHsv);
+    } else {
+        bgColorRgb = { R: 255, G: 255, B: 255 };
+    }
+    console.log(bgColorRgb);
+    this.renderer.clear(bgColorRgb.R * f, bgColorRgb.G * f, bgColorRgb.B * f);
+
+    // Finally, draw away.
+    this.drawRuleRecurse(grammar.startRuleRef, this.maxPrims, 1, 1);
 }
 
 // drawRuleRecurse: Pass in a rule, as in, a structure like { name: "foo",
@@ -243,11 +144,10 @@ GrammarParser.prototype.drawRuleRecurse = function(rule, maxPrims, localScaleX, 
         sample = Math.random();
     }
 
-    // If the normal 'select' rule: Just iterate through.
-    // If using 'random': iterate and only execute upon finding the right
+    // For the normal policy: just iterate through
+    // If using 'random' policy: iterate and only execute upon finding the right
     // cumulative value for the sample.
     for (i = 0; more && i < rule.child.length; ++i) {
-
         
         if (rule.isRandom) {
             if (sample > rule.child[i].cumul) {
@@ -328,10 +228,9 @@ function makeDownload(elem, filename, text) {
 }
 
 // resolveRules:
-// This walks through a rule tree, which is structured something like...
+// This walks through a grammar, which is structured something like...
 // { startRule: "foo",
-//   rules: [ startRule: "foo",
-//            {name: "foo", child: [ {rule: "foo", . . .},
+//   rules: [ {name: "foo", child: [ {rule: "foo", . . .},
 //                                   {rule: "bar", . . .},
 //                                   {rule: "triangle", . . .} ] },
 //            {name: "bar", child: [ {rule: "square", scale 2, ... } ] },
@@ -345,13 +244,13 @@ function makeDownload(elem, filename, text) {
 // as nonexistent names in the 'rule' field. It will return false in this case,
 // but in all cases, it will still walk the tree and try to resolve everything.
 // Cases where no conflicts or nonexistent references occur, it returns true.
-function resolveRules(ruleTree) {
+function resolveRules(grammar) {
     var i, j, nameToRule = {}, rules, children, ruleName, error;
     error = false;
 
     // (1) Iterate through the rule list and make an object mapping names to
     // specific parts of the tree.
-    rules = ruleTree.rules;
+    rules = grammar.rules;
     for (i = 0; i < rules.length; ++i) {
 
         ruleName = rules[i].name;
@@ -383,21 +282,26 @@ function resolveRules(ruleTree) {
     }
 
     // Do likewise for startRule
-    ruleTree.startRuleRef = nameToRule[ruleTree.startRule];
+    grammar.startRuleRef = nameToRule[grammar.startRule];
     return !error;
 }
 // TODO: Make code to validate well-formedness of the rule tree, e.g. checking
 // that 'scale' has two values
 // TODO: Work primitives into this more seamlessly
 
-function accumProbability(ruleTree) {
+// This walks through a grammar, and for any rule with a policy of 'random', it
+// accumulates the probabilities in each of the children (i.e. the 'prob'
+// property, or assuming 1.0 if missing) and turns each one into a cumulative
+// distribution from 0 to 1, which it puts in a 'cumul' field alongside 'prob'.
+// It's just some preprocessing to simplify computations later.
+function accumProbability(grammar) {
     var i, j, rules, children, total = 0, prob;
 
-    rules = ruleTree.rules;
+    rules = grammar.rules;
     for (i = 0; i < rules.length; ++i) {
 
-        // If 'select' strategy isn't random, don't bother with this rule.
-        if (rules[i].select !== "random") {
+        // If policy isn't random, don't bother with this rule.
+        if (rules[i].policy !== "random") {
             rules[i].isRandom = false;
             continue;
         }

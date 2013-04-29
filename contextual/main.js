@@ -1,3 +1,5 @@
+"use strict";
+
 console.log("Initializing JavaScript stuff!");
 var svgNS = "http://www.w3.org/2000/svg";
 // Populated in onLoad
@@ -14,21 +16,26 @@ var svgDownloadId = "svgDownload";
 
 // Set every frame
 var t;
+var t0;
 var dt; // time delta since last frame
 
 var grammarParse;
 var canvasRender;
 var svgRender;
 
-var ruleString = "";
-var rule;
+var grammarString = "";
+
+// The function that generates the grammar:
+var grammarFn;
+// The grammar which it evaluated to this frame:
+var grammar;
 
 function onLoad() {
     var time, svg, style, codeMirrorDiv;
 
     codeMirrorDiv = document.getElementById('codeMirror');
     codeMirror = CodeMirror(codeMirrorDiv, {
-        value: ruleStringStart,
+        value: grammarStringStart,
         mode: "javascript",
         lineNumbers: true,
         lineWrapping: true
@@ -37,7 +44,7 @@ function onLoad() {
     codeMirror.setSize(null, "500px");
 
     // Do the initial evaluation of the source code in the box
-    evalRule();
+    evalGrammar();
 
     canvas = document.getElementById('canvasRender');
     /*style = window.getComputedStyle(canvas);
@@ -65,7 +72,7 @@ function onLoad() {
         // Make SVG invisible, and Canvas visible:
         svg.style.display = "none";
         canvas.style.display = "inline";
-        evalRule();
+        evalGrammar();
         step(canvasRender);
     };
 
@@ -74,7 +81,7 @@ function onLoad() {
         // Make Canvas invisible, and SVG visible:
         svg.style.display = "inline";
         canvas.style.display = "none";
-        evalRule();
+        evalGrammar();
         step(svgRender);
     };
 
@@ -97,21 +104,22 @@ function onLoad() {
     var time = new Date();
     t0 = time.getTime();
 
-    branchBool = false;
-
     t = time.getTime();
 
 }
 
-// If the rule text has changed, this updates 'rule'.
-function evalRule() {
-    var currentRuleString = codeMirror.getValue();
-    if (ruleString !== currentRuleString) {
-        ruleString = currentRuleString;
-        eval("rule = " + ruleString);
-        resolveRules(rule);
-        accumProbability(rule);
+function evalGrammar() {
+    // TODO: Don't re-evaluate if any changes are impossible?
+    var grammarString = codeMirror.getValue();
+    eval("grammarFn = " + grammarString);
+    if (typeof grammarFn != "function") {
+        console.log("This grammar looks like an expression, not a function. Trying anyway.");
+        grammar = grammarFn;
+    } else {
+        grammar = grammarFn(t, {});
     }
+    resolveRules(grammar);
+    accumProbability(grammar);
 }
 
 function step(renderer) {
@@ -121,7 +129,7 @@ function step(renderer) {
     t = time.getTime();
     
     grammarParse.renderer = renderer;
-    grammarParse.drawRule(rule.startRuleRef);
+    grammarParse.drawRule(grammar);
 
     //window.requestAnimFrame(step);
 }
