@@ -118,6 +118,9 @@ function evalGrammar() {
     } else {
         grammar = grammarFn(t, {});
     }
+
+    validateGrammar(grammar);
+
     resolveRules(grammar);
     accumProbability(grammar);
 }

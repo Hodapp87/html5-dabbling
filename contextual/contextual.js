@@ -113,7 +113,6 @@ GrammarParser.prototype.drawRule = function(grammar) {
     } else {
         bgColorRgb = { R: 255, G: 255, B: 255 };
     }
-    console.log(bgColorRgb);
     this.renderer.clear(bgColorRgb.R * f, bgColorRgb.G * f, bgColorRgb.B * f);
 
     // Finally, draw away.
@@ -288,6 +287,100 @@ function resolveRules(grammar) {
 // TODO: Make code to validate well-formedness of the rule tree, e.g. checking
 // that 'scale' has two values
 // TODO: Work primitives into this more seamlessly
+
+// Check if a grammar looks like it is valid; this will also try to log messages
+// for anything that makes it invalid.  If it appears to be valid, this returns
+// 0; otherwise, it returns a number of errors detected.
+function validateGrammar(grammar) {
+    var fails = 0;
+    var i;
+    var rule;
+
+    // Check startRuleRef
+    if (grammar.startRule == null) {
+	console.log("Grammar needs a start rule ('startRuleRef' property).");
+	fails += 1;
+    } else if (typeof grammar.startRule !== "string") {
+	console.log("startRuleRef must be a string");
+	fails += 1;
+    }
+
+    // Check rules
+    if (grammar.rules == null) {
+	console.log("Grammar needs rules ('rules' property).");
+	fails += 1;
+    } else if (grammar.rules.constructor !== Array) {
+	console.log("'rules' property must be an array");
+	fails += 1;
+    } else {
+	for (i = 0; i < grammar.rules.length; ++i) {
+	    fails += validateRule(grammar.rules[i]);
+	}
+    }
+
+    if (fails == 0) {
+	console.log("Grammar looks valid!");
+    } else {
+	console.log("Detected " + fails + " errors in this grammar.");
+    }
+    return fails;
+}
+
+// Validate an individual rule within a grammar, i.e. a structure that looks
+// like: { name: "top",\n\
+//         child: [{ rule: "tri", scale: [200, 200], translate: [300, 300]}] }
+// ...and check if it looks valid; print a message explaining why if not. This
+// returns true if it looks valid, and false otherwise.
+// The 'id' argument is optional ID to use in the messages.
+function validateRule(rule, id) {
+    var fails = 0;
+    var i;
+    var prefix = "Rule " + id;
+    var name = prefix;
+
+    // Check name
+    if (rule.name == null) {
+	console.log("Warning: " + prefix + " has no 'name' property.");
+    } else if (typeof rule.name !== "string") {
+	console.log(prefix + " has a 'name' property but it is not a string.");
+	fails += 1;
+	name = name + " (invalid name)";
+    } else {
+	name = name + " (" + rule.name + ")";
+    }
+
+    // Check policy
+    if (rule.policy == null) {
+	console.log("Warning: " + prefix + " has no 'policy' property.");
+    } else if (typeof rule.policy !== "string") {
+	console.log(prefix + " has a 'policy' property but it is not a string.");
+	fails += 1;
+    }    
+
+    // Check child rules
+    if (rule.child == null) {
+	console.log("Warning: " + prefix + " has no 'child' property.");
+    }
+    if (rule.child.constructor !== Array) {
+	console.log("'child' property must be an array.");
+	fails += 1;
+    } else {
+	for (i = 0; i < rule.child.length; ++i) {
+	    fails += validateChild(rule.child[i], name + ", child " + i);
+	}
+    }
+
+    return fails;
+}
+
+// Validate a child inside of a rule, i.e. the 'child' property in the comment
+// for validateRule.  Print a message explaining why if it looks invalid, and
+// return false; otherwise, return true.
+// The 'id' argument, as in validateRule', is an optional ID to use in the
+// messages.
+function validateChild(child, id) {
+    return 0;
+}
 
 // This walks through a grammar, and for any rule with a policy of 'random', it
 // accumulates the probabilities in each of the children (i.e. the 'prob'
