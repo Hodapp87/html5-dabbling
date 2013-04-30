@@ -121,7 +121,7 @@ function evalGrammar() {
 
     validateGrammar(grammar);
 
-    resolveRules(grammar);
+    resolveRules(grammar, GrammarParser.prototype.primitives);
     accumProbability(grammar);
 }
 

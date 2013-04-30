@@ -1,59 +1,4 @@
 "use strict";
-// - New primitives: Line? Dot?
-// - New primitive, hard mode: A recursive reference to another grammar?
-// - New primitive, super hard mode: A function generating pixel values?
-// 
-
-function Renderer() { }
-// Renderer.drawTriangle(x0, y0, x1, y1, x2, y2):
-//     Draw a triangle with vertices at (x0,y0), (x1, y1), (x2, y2). Note that
-//     the real coordinates are determined by whatever local transform is in use.
-
-// Renderer.drawSquare(x0, y0, x1, y1):
-//     Draw a square with corners (x0,y0), (x1, y1).  As in drawTriangle, the
-//     current transforms still apply to these coordinates.
-
-// Renderer.pushTransform():
-//     Whatever the current transform is (scale/translate/rotate), push this
-//     state on the transform stack so 'popTransform' may bring it back.
-
-// Renderer.popTransform():
-//     Discard the last set of transformations, and return to the state at the
-//     time of the last pushTransform().
-
-// Renderer.scale(scaleX, scaleY):
-//     Scale the current coordinate system by the given factor in X and Y.
-//     Setting either one to zero is liable to get you in a bad state.
-
-// Renderer.translate(transX, transY):
-//     Translate the current coordinate system by the given amount in each
-//     axis.
-
-// Renderer.translate(angle):
-//     Rotate the current coordinate system clockwise by the given angle in
-//     radians.
-
-// Renderer.setStrokeWidth(width):
-//     Set the stroke width, which applies to the edges of primitives.
-//     TODO: Figure out what the units on this are.
-
-// Renderer.setStrokeColor(r, g, b, alpha):
-//     r, g, b, and alpha are all floats from 0 to 1. 'alpha' is optional.
-//     Set the stroke color for any shape drawn, as an RGB value with optional
-//     alpha; if alpha is left out, it is assumed as 1 (full opacity).
-
-// Renderer.setFillColor(r, g, b, alpha):
-//     Set the fill color for any shape drawn. Conventions here are the same as
-//     setStrokeColor.
-
-// Renderer.clear(r, g, b):
-//     r, g, b are all optional floats from 0 to 1.
-//     Reset basically all state of this renderer. That includes:
-//      - Clearing everything that has been drawn, and filling with the given
-//        RGB color (or white if not given)
-//      - Clearing out any transforms.
-//      - Resetting stroke width to its default.
-//      - Resetting stroke color to black, and fill color to white.
 
 function GrammarParser(renderer) {
     // You may safely reset this renderer without reinitializing the object.
@@ -209,23 +154,6 @@ GrammarParser.prototype.drawRuleRecurse = function(rule, maxPrims, localScaleX, 
     return prims;
 }
 
-// makeDownload: This turns the given element into a string, and then returns
-// a link element that when clicked will download that element, defaulting to
-// the given filename.  Text of the link will be set from the 'text' argument.
-function makeDownload(elem, filename, text) {
-    // Note that, while this is in the standard, it only works in Chrome so far.
-    var blob, a, s, buttons;
-
-    s = new XMLSerializer();
-    blob = new Blob([s.serializeToString(elem)]);
-    a = document.createElement("a");
-    a.href = window.URL.createObjectURL(blob);
-    a.download = filename;
-    a.textContent = text;
-
-    return a;
-}
-
 // resolveRules:
 // This walks through a grammar, which is structured something like...
 // { startRule: "foo",
@@ -243,9 +171,15 @@ function makeDownload(elem, filename, text) {
 // as nonexistent names in the 'rule' field. It will return false in this case,
 // but in all cases, it will still walk the tree and try to resolve everything.
 // Cases where no conflicts or nonexistent references occur, it returns true.
-function resolveRules(grammar) {
+// 
+// The 'prims' argument is optional, and it specifies an object whose properties
+// are the names of any primitive rules.  This is here only to silence the
+// name-undefined warnings that occur when a child invokes a primitive (which at
+// least one must, if it is to draw anything).
+function resolveRules(grammar, prims) {
     var i, j, nameToRule = {}, rules, children, ruleName, error;
     error = false;
+    prims = (prims == null) ? {} : prims;
 
     // (1) Iterate through the rule list and make an object mapping names to
     // specific parts of the tree.
@@ -271,7 +205,7 @@ function resolveRules(grammar) {
 
             ruleName = children[j].rule;
 
-            if (!nameToRule[ruleName]) {
+            if (!nameToRule[ruleName] && !prims[ruleName]) {
                 console.log("Name " + ruleName + " not found!");
                 error = true;
             } else {
@@ -309,12 +243,12 @@ function validateGrammar(grammar) {
     if (grammar.rules == null) {
 	console.log("Grammar needs rules ('rules' property).");
 	fails += 1;
-    } else if (grammar.rules.constructor !== Array) {
+    } else if (grammar.rules.constructor != Array) {
 	console.log("'rules' property must be an array");
 	fails += 1;
     } else {
 	for (i = 0; i < grammar.rules.length; ++i) {
-	    fails += validateRule(grammar.rules[i]);
+	    fails += validateRule(grammar.rules[i], i);
 	}
     }
 
@@ -335,7 +269,7 @@ function validateGrammar(grammar) {
 function validateRule(rule, id) {
     var fails = 0;
     var i;
-    var prefix = "Rule " + id;
+    var prefix = "rule " + id;
     var name = prefix;
 
     // Check name
@@ -351,17 +285,17 @@ function validateRule(rule, id) {
 
     // Check policy
     if (rule.policy == null) {
-	console.log("Warning: " + prefix + " has no 'policy' property.");
+        //console.log("Warning: " + prefix + " has no 'policy' property.");
     } else if (typeof rule.policy !== "string") {
-	console.log(prefix + " has a 'policy' property but it is not a string.");
+	console.log("'policy' property of " + prefix + " must be a string.");
 	fails += 1;
     }    
 
     // Check child rules
     if (rule.child == null) {
-	console.log("Warning: " + prefix + " has no 'child' property.");
+        console.log("Warning: " + prefix + " has no 'child' property.");
     }
-    if (rule.child.constructor !== Array) {
+    if (rule.child.constructor != Array) {
 	console.log("'child' property must be an array.");
 	fails += 1;
     } else {
@@ -379,7 +313,59 @@ function validateRule(rule, id) {
 // The 'id' argument, as in validateRule', is an optional ID to use in the
 // messages.
 function validateChild(child, id) {
-    return 0;
+    var fails = 0;
+    var name = (id == null) ? "" : id;
+
+    // Check rule that this child invokes
+    if (child.rule == null) {
+        console.log(name + ": No 'rule' property!");
+        fails += 1;
+    } else if (typeof child.rule !== "string") {
+        console.log("'rule' property of " + name + " must be a string.");
+        fails += 1;
+    }
+   
+    function checkOptionalNumber(numTest, prop) {
+        // Missing is okay.
+        if (numTest == null) {
+            return 0;
+        }
+
+        // Non-number is not.
+        if (typeof numTest !== "number") {
+            console.log(name + ": property '" + prop + "' must be a number.");
+            return 1;
+        } else {
+            return 0;
+        }
+    }
+
+    function checkOptionalArray(arrayTest, len, prop) {
+        var fails2 = 0;
+
+        if (arrayTest != null) {
+            if (arrayTest.constructor != Array) {
+                console.log(name + " has '" + prop + "' but it is not an array.");
+                fails2 += 1;
+            } else if (arrayTest.length != 2) {
+                console.log(name + ": '" + prop + "' must be an array of length 2."); 
+                fails2 += 1;
+            } else if (typeof arrayTest[0] !== "number" ||
+                       typeof arrayTest[1] !== "number") {
+                console.log(name + ": '" + prop + "' contains non-numerical element.");
+                fails2 += 1;
+            }
+        }
+        return fails2;
+    }
+
+    // Check transforms
+    fails = checkOptionalArray(child.scale, 2, "scale") +
+        checkOptionalArray(child.translate, 3, "trans") +
+        checkOptionalNumber(child.rotate, "rotate") + 
+        checkOptionalNumber(child.prob, "prob");
+
+    return fails;
 }
 
 // This walks through a grammar, and for any rule with a policy of 'random', it
@@ -415,21 +401,5 @@ function accumProbability(grammar) {
             children[j].cumul /= total;
         }
 
-    }
-}
-
-// This is a utility function for converting RGB values (with an optional alpha
-// channel) which are all from 0 to 1, to a string like rgb(10,20,30) or
-// rgba(0,10,20,0.5), suitable for use in strokeStyle and fillStyle.
-function rgb2string(r, g, b, a) {
-    var r255 = 255 * r;
-    var g255 = 255 * g;
-    var b255 = 255 * b;
-    
-    // Note that 'a' is not scaled, but r, g, and b are.
-    if (a == null) {
-	return "rgb(" + r255 + "," + g255 + "," + b255 + ")";
-    } else {
-	return "rgba(" + r255 + "," + g255 + "," + b255 + "," + a + ")";
     }
 }
