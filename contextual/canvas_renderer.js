@@ -58,19 +58,21 @@ CanvasRenderer.prototype.setStrokeWidth = function(width) {
 };
 
 CanvasRenderer.prototype.setStrokeColor = function(r, g, b, a) {
-    a = (a == null) ? 1.0 : a;
-    this.context.setStrokeColor(r, g, b, a);
+    //a = (a == null) ? 1.0 : a;
+    //this.context.setStrokeColor(r, g, b, a);
+    this.context.strokeStyle = rgb2string(r, g, b, a);
 };
 
 CanvasRenderer.prototype.setFillColor = function(r, g, b, a) {
-    a = (a == null) ? 1.0 : a;
-    this.context.setFillColor(r, g, b, a);
+    //a = (a == null) ? 1.0 : a;
+    //this.context.setFillColor(r, g, b, a);
+    this.context.fillStyle = rgb2string(r, g, b, a);
 };
 
 CanvasRenderer.prototype.clear = function(r, g, b) {
     this.context.setTransform(1, 0, 0, 1, 0, 0);
     if (r != null) {
-        this.context.setFillColor(r, g, b, 1.0);
+        this.setFillColor(r, g, b, 1.0);
         this.context.fillRect(0, 0, this.canvas.width, this.canvas.height);
     } else {
         this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);

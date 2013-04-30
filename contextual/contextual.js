@@ -324,3 +324,19 @@ function accumProbability(grammar) {
 
     }
 }
+
+// This is a utility function for converting RGB values (with an optional alpha
+// channel) which are all from 0 to 1, to a string like rgb(10,20,30) or
+// rgba(0,10,20,0.5), suitable for use in strokeStyle and fillStyle.
+function rgb2string(r, g, b, a) {
+    var r255 = 255 * r;
+    var g255 = 255 * g;
+    var b255 = 255 * b;
+    
+    // Note that 'a' is not scaled, but r, g, and b are.
+    if (a == null) {
+	return "rgb(" + r255 + "," + g255 + "," + b255 + ")";
+    } else {
+	return "rgba(" + r255 + "," + g255 + "," + b255 + "," + a + ")";
+    }
+}
