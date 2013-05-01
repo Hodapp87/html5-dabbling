@@ -26,6 +26,20 @@ function GrammarParser(renderer) {
     this.triY1 = h * Math.sin(ang1);
     this.triX2 = h * Math.cos(ang2);
     this.triY2 = h * Math.sin(ang2);
+
+
+    // These hold a stack of colors and alpha values for stroke and fill,
+    // which we treat as being part of the transform.
+    this.strokeStack = [];
+    this.fillStack = [];
+    // These are both intended to be [H,S,V] triplets, in which H is in the
+    // range [0,360), S is in [0,100], V is in [0,100]
+    /*
+    this.strokeStack.push(this.context.strokeStyle);
+    this.fillStack.push(this.context.fillStyle);
+    this.context.strokeStyle = this.strokeStack.pop();
+    this.context.fillStyle = this.fileStack.pop();
+    */
 }
 
 GrammarParser.prototype.primitives = {};
@@ -43,7 +57,11 @@ GrammarParser.prototype.primitives.square = function(this_) {
 // a given grammar.
 GrammarParser.prototype.drawRule = function(grammar) {
     var bgColorHsv, bgColorRgb, f;
-    // this.context.strokeStyle = "black";
+
+    // [H, S, V, A]
+    // H is in [0,360), 
+    var stroke = [0, 0, 100, 1];
+    var fill = [0, 0, 100, 1];
 
     // To correct between the range used in Colors.js (0-255) and in Canvas
     // (0-1) we precompute this scale factor.
@@ -61,7 +79,7 @@ GrammarParser.prototype.drawRule = function(grammar) {
     this.renderer.clear(bgColorRgb.R * f, bgColorRgb.G * f, bgColorRgb.B * f);
 
     // Finally, draw away.
-    this.drawRuleRecurse(grammar.startRuleRef, this.maxPrims, 1, 1);
+    this.drawRuleRecurse(grammar.startRuleRef, this.maxPrims, 1, 1, stroke, fill);
 }
 
 // drawRuleRecurse: Pass in a rule, as in, a structure like { name: "foo",
@@ -71,14 +89,22 @@ GrammarParser.prototype.drawRule = function(grammar) {
 // which ever is reached first.  (this.maxPrims sets the former limit;
 // this.scaleMinX, this.scaleMinY set the latter one)
 // This returns the number of primitives drawn, which may be zero.
-GrammarParser.prototype.drawRuleRecurse = function(rule, maxPrims, localScaleX, localScaleY) {
-    var i, primFn, childRule, childRuleName, prims = 0, sample;
+GrammarParser.prototype.drawRuleRecurse = function(rule, maxPrims, localScaleX,
+                                                   localScaleY, stroke, fill) {
+    var i, j, primFn, childRule, childRuleName, prims = 0, sample;
     var more = true;
 
     // Variables to hold transform parameters:
     var scale, trans;
     var scaleX, scaleY, rotate, transX, transY;
     var oldLineWidth = 1, lineWidth = 1;
+    
+    // Fill & stroke colors we'll pass forward; these are in HSV
+    var newStroke = [0, 0, 100, 1];
+    var newFill = [0, 0, 100, 1];
+    // RGB counterparts:
+    var newStrokeRgb;
+    var newFillRgb;
 
     if (localScaleX < this.scaleMinX || localScaleY < this.scaleMinY) {
         return 0;
@@ -129,7 +155,32 @@ GrammarParser.prototype.drawRuleRecurse = function(rule, maxPrims, localScaleX, 
             transY = trans ? trans[1] : 0.0;
             rotate = rule.child[i].rotate;
             rotate = rotate ? rotate : 0.0;
+	    
+	    // Likewise, color transforms:
+	    if (rule.child[i].stroke != null) {
+		newStroke[0] = (stroke[0] + rule.child[i].stroke[0] + 360) % 360;
+		newStroke[1] = stroke[1] + rule.child[i].stroke[1] * 100;
+		newStroke[2] = stroke[2] + rule.child[i].stroke[2] * 100;
+		newStroke[3] = Math.max(0, Math.min(1, stroke[3] + rule.child[i].stroke[3]));
+	    } else {
+		for (j = 0; j < 4; ++j) {
+		    newStroke[j] = stroke[j];
+		}
+	    }
+            newStrokeRgb = Colors.hsv2rgb(newStroke);
 
+	    if (rule.child[i].fill != null) {
+		newFill[0] = (fill[0] + rule.child[i].fill[0] + 360) % 360;
+		newFill[1] = fill[1] + rule.child[i].fill[1] * 100;
+		newFill[2] = fill[2] + rule.child[i].fill[2] * 100;
+		newFill[3] = Math.max(0, Math.min(1, fill[3] + rule.child[i].fill[3]));
+	    } else {
+		for (j = 0; j < 4; ++j) {
+		    newFill[j] = fill[j];
+		}
+	    }
+            newFillRgb = Colors.hsv2rgb(newFill);
+	    
             //console.log("Push " + scaleX + "," + scaleY + " +" + transX + "," + transY);
             this.renderer.setStrokeWidth(lineWidth);
             this.renderer.pushTransform();
@@ -139,12 +190,22 @@ GrammarParser.prototype.drawRuleRecurse = function(rule, maxPrims, localScaleX, 
                 this.renderer.translate(transX, transY);
                 this.renderer.rotate(rotate);
                 this.renderer.scale(scaleX, scaleY);
+		this.renderer.setStrokeColor(newStrokeRgb.R / 255,
+                                             newStrokeRgb.G / 255,
+                                             newStrokeRgb.B / 255,
+                                             newStroke[3]);
+		this.renderer.setFillColor(newFillRgb.R / 255,
+                                           newFillRgb.G / 255,
+                                           newFillRgb.B / 255,
+                                           newFill[3]);
 
                 // Accumulate local scales, and decrement recursion depth.
                 prims += this.drawRuleRecurse(childRule,
                                               maxPrims - prims,
                                               localScaleX * scaleX,
-                                              localScaleY * scaleY);
+                                              localScaleY * scaleY,
+					      newStroke,
+					      newFill);
             }
             this.renderer.popTransform();
             this.renderer.setStrokeWidth(oldLineWidth);
@@ -347,8 +408,8 @@ function validateChild(child, id) {
             if (arrayTest.constructor != Array) {
                 console.log(name + " has '" + prop + "' but it is not an array.");
                 fails2 += 1;
-            } else if (arrayTest.length != 2) {
-                console.log(name + ": '" + prop + "' must be an array of length 2."); 
+            } else if (arrayTest.length != len) {
+                console.log(name + ": '" + prop + "' must be an array of length " + len); 
                 fails2 += 1;
             } else if (typeof arrayTest[0] !== "number" ||
                        typeof arrayTest[1] !== "number") {
@@ -361,9 +422,11 @@ function validateChild(child, id) {
 
     // Check transforms
     fails = checkOptionalArray(child.scale, 2, "scale") +
-        checkOptionalArray(child.translate, 3, "trans") +
+        checkOptionalArray(child.translate, 2, "trans") +
         checkOptionalNumber(child.rotate, "rotate") + 
-        checkOptionalNumber(child.prob, "prob");
+        checkOptionalNumber(child.prob, "prob") +
+	checkOptionalArray(child.stroke, 4, "stroke") +
+	checkOptionalArray(child.fill, 4, "fill");
 
     return fails;
 }

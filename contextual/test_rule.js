@@ -127,7 +127,6 @@ var grammarStringStart2 = '{ \n\
 }; \n\
 ';
 
-
 var grammarStringStart = '(function (t, params) {\n\
     var delta1 = (1 + Math.sin(t / 100)) / 2;\n\
     var delta2 = (1 + Math.cos(t / 100)) / 2;\n\
@@ -137,13 +136,13 @@ var grammarStringStart = '(function (t, params) {\n\
         background: [0, 0, 0], // this is an HSV color\n\
         rules: [\n\
             { name: "top",\n\
-              child: [{ rule: "tri", scale: [200, 200], translate: [300, 300]}]},\n\
+              child: [{ rule: "tri", stroke: [0, 0, 1, 1], fill: [0, 0, 1, 1], scale: [200, 200], translate: [300, 300]}]},\n\
             { name: "tri",\n\
               child: [{ rule: "triangle" },\n\
-                      { rule: "pickDir" }]},\n\
+                      { rule: "pickDir", stroke: [0, 0, -0.05, 0] }]},\n\
             { name: "pickDir",\n\
               policy: "random",\n\
-              child: [{rule: "tri", prob: 0.2, scale: [0.7 * delta1, 0.7 * delta2], translate: [-0.577, -0.5], rotate: -0.4 },\n\
+              child: [{rule: "tri", prob: 0.2, scale: [0.7, 0.7], translate: [-0.577, -0.5], rotate: -0.4 },\n\
                       {rule: "tri", prob: 0.2, scale: [0.7, 0.7], translate: [0.577, -0.5], rotate: 0.5 },\n\
                       {rule: "branch", prob: 0.7}]},\n\
             { name: "branch",\n\
@@ -153,4 +152,3 @@ var grammarStringStart = '(function (t, params) {\n\
    };\n\
 });\n\
 ';
-

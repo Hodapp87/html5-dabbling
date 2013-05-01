@@ -105,7 +105,6 @@ function onLoad() {
     t0 = time.getTime();
 
     t = time.getTime();
-
 }
 
 function evalGrammar() {
