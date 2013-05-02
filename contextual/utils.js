@@ -34,3 +34,7 @@ function makeDownload(elem, filename, text) {
     return a;
 }
 
+// Clamp a number to be in between 0 and 1.
+function clamp(val) {
+    return val < 0 ? 0 : (val > 1 ? 1 : val);
+}

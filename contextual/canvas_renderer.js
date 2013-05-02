@@ -22,8 +22,6 @@ CanvasRenderer.prototype.drawTriangle = function(x0, y0, x1, y1, x2, y2) {
     this.context.lineTo(x1, y1);
     this.context.lineTo(x2, y2);
     this.context.closePath();
-    //context.fillStyle = "rgba(0,1.0,1.0,1.0)";
-    //context.fill();
     this.context.stroke();
     this.context.fill();
 };
@@ -85,5 +83,4 @@ CanvasRenderer.prototype.clear = function(r, g, b) {
         this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
     }
     this.setStrokeWidth(1);
-    //this.setStrokeColor(0, 0, 100, 0.5);
 };

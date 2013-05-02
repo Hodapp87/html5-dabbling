@@ -12,7 +12,7 @@ function GrammarParser(renderer) {
 
     // maxPrims is the (rough) maximum number of primitives to permit any
     // grammar to draw.
-    this.maxPrims = 10000;
+    this.maxPrims = 100;
 
     // Some constants for drawing a triangle:
     var s = 1;
@@ -60,8 +60,8 @@ GrammarParser.prototype.drawRule = function(grammar) {
 
     // [H, S, V, A]
     // H is in [0,360), 
-    var stroke = [0, 0, 100, 1];
-    var fill = [0, 0, 100, 1];
+    var stroke = [0, 0, 1, 1];
+    var fill = [0, 0, 1, 1];
 
     // To correct between the range used in Colors.js (0-255) and in Canvas
     // (0-1) we precompute this scale factor.
@@ -99,10 +99,10 @@ GrammarParser.prototype.drawRuleRecurse = function(rule, maxPrims, localScaleX,
     var scaleX, scaleY, rotate, transX, transY;
     var oldLineWidth = 1, lineWidth = 1;
     
-    // Fill & stroke colors we'll pass forward; these are in HSV
-    var newStroke = [0, 0, 100, 1];
-    var newFill = [0, 0, 100, 1];
-    // RGB counterparts:
+    // Fill & stroke colors we'll pass forward; these are in HSV, normalized:
+    var newStroke = [0, 0, 1, 1];
+    var newFill = [0, 0, 1, 1];
+    // RGB counterparts; these are RGB colors from Colors.js:
     var newStrokeRgb;
     var newFillRgb;
 
@@ -158,28 +158,33 @@ GrammarParser.prototype.drawRuleRecurse = function(rule, maxPrims, localScaleX,
 	    
 	    // Likewise, color transforms:
 	    if (rule.child[i].stroke != null) {
-		newStroke[0] = (stroke[0] + rule.child[i].stroke[0] + 360) % 360;
-		newStroke[1] = stroke[1] + rule.child[i].stroke[1] * 100;
-		newStroke[2] = stroke[2] + rule.child[i].stroke[2] * 100;
-		newStroke[3] = Math.max(0, Math.min(1, stroke[3] + rule.child[i].stroke[3]));
+		newStroke[0] = stroke[0] + rule.child[i].stroke[0];
+                // since H is cyclical:
+                newStroke[0] -= Math.floor(newStroke[0]);
+		newStroke[1] = clamp(stroke[1] + rule.child[i].stroke[1]);
+		newStroke[2] = clamp(stroke[2] + rule.child[i].stroke[2]);
+		newStroke[3] = clamp(stroke[3] + rule.child[i].stroke[3]);
+                console.log("newStroke: " + newStroke);
 	    } else {
 		for (j = 0; j < 4; ++j) {
 		    newStroke[j] = stroke[j];
 		}
 	    }
-            newStrokeRgb = Colors.hsv2rgb(newStroke);
+            newStrokeRgb = Colors.hsv2rgb(newStroke[0] * 359.9, newStroke[1] * 100, newStroke[2] * 100);
 
 	    if (rule.child[i].fill != null) {
-		newFill[0] = (fill[0] + rule.child[i].fill[0] + 360) % 360;
-		newFill[1] = fill[1] + rule.child[i].fill[1] * 100;
-		newFill[2] = fill[2] + rule.child[i].fill[2] * 100;
-		newFill[3] = Math.max(0, Math.min(1, fill[3] + rule.child[i].fill[3]));
+		newFill[0] = fill[0] + rule.child[i].fill[0];
+                newFill[0] -= Math.floor(newFill[0]);
+		newFill[1] = clamp(fill[1] + rule.child[i].fill[1]);
+		newFill[2] = clamp(fill[2] + rule.child[i].fill[2]);
+		newFill[3] = clamp(fill[3] + rule.child[i].fill[3]);
+                console.log("newFill: " + newFill);
 	    } else {
 		for (j = 0; j < 4; ++j) {
 		    newFill[j] = fill[j];
 		}
 	    }
-            newFillRgb = Colors.hsv2rgb(newFill);
+            newFillRgb = Colors.hsv2rgb(newFill[0] * 359.9, newFill[1] * 100, newFill[2] * 100);
 	    
             //console.log("Push " + scaleX + "," + scaleY + " +" + transX + "," + transY);
             this.renderer.setStrokeWidth(lineWidth);
