@@ -33,6 +33,8 @@ var grammar;
 function onLoad() {
     var time, svg, style, codeMirrorDiv;
 
+    reseed();
+
     codeMirrorDiv = document.getElementById('codeMirror');
     codeMirror = CodeMirror(codeMirrorDiv, {
         value: grammarStringStart,
@@ -66,6 +68,10 @@ function onLoad() {
             mouseY = event.clientY;
         }
     }, true);
+
+    document.getElementById("reseed").onclick = function() {
+        reseed();
+    };
 
     document.getElementById("renderCanvasButton").onclick = function() {
         console.log("rendering Canvas!");
@@ -126,14 +132,21 @@ function evalGrammar() {
 
 function step(renderer) {
     var time = new Date();
+    var seed;
+
+    seed = document.getElementById("seed").value;
 
     dt = (time.getTime() - t) / 1000;
     t = time.getTime();
     
     grammarParse.renderer = renderer;
-    grammarParse.drawRule(grammar);
+    grammarParse.drawRule(grammar, seed);
 
     //window.requestAnimFrame(step);
+}
+
+function reseed() {
+    document.getElementById("seed").value = Math.seedrandom();
 }
 
 window.addEventListener("load", onLoad, true);

@@ -12,7 +12,7 @@ function GrammarParser(renderer) {
 
     // maxPrims is the (rough) maximum number of primitives to permit any
     // grammar to draw.
-    this.maxPrims = 100;
+    this.maxPrims = 10000;
 
     // Some constants for drawing a triangle:
     var s = 1;
@@ -34,12 +34,6 @@ function GrammarParser(renderer) {
     this.fillStack = [];
     // These are both intended to be [H,S,V] triplets, in which H is in the
     // range [0,360), S is in [0,100], V is in [0,100]
-    /*
-    this.strokeStack.push(this.context.strokeStyle);
-    this.fillStack.push(this.context.fillStyle);
-    this.context.strokeStyle = this.strokeStack.pop();
-    this.context.fillStyle = this.fileStack.pop();
-    */
 }
 
 GrammarParser.prototype.primitives = {};
@@ -55,8 +49,10 @@ GrammarParser.prototype.primitives.square = function(this_) {
 
 // drawRule: Call drawRuleRecurse with some sane initial values, starting from
 // a given grammar.
-GrammarParser.prototype.drawRule = function(grammar) {
+GrammarParser.prototype.drawRule = function(grammar, seed) {
     var bgColorHsv, bgColorRgb, f;
+
+    Math.seedrandom(seed);
 
     // [H, S, V, A]
     // H is in [0,360), 

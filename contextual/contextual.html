@@ -5,6 +5,7 @@
     <title>Canvas Dabbling</title>
 
     <script src="colors.min.js"></script>
+    <script src="seedrandom-min.js"></script>
     <script src="utils.js"></script>
     <script src="contextual.js"></script>
     <script src="renderer.js"></script>
@@ -26,12 +27,14 @@
     <svg class="render" id="svgRender" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="600" height="600"></svg>
     <div id="mirrorAndButtons">
       <div id="buttons">
-	<button id="renderCanvasButton">Render Canvas</button>
-	<button id="renderSvgButton">Render SVG</button>
-	<button id="svgButton">Download SVG</button>
+        <button id="renderCanvasButton">Render Canvas</button>
+        <button id="renderSvgButton">Render SVG</button>
+        <button id="svgButton">Download SVG</button>
       </div>
       <div id="codeMirror"></div>
       <div id="downloadLinks"></div>
+      <button id="reseed">New Seed</button>
+      <input type="text" id="seed" value="" maxlength="100" />
     </div>
   </body>
 </html>

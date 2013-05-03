@@ -139,7 +139,7 @@ var grammarStringStart = '(function (t, params) {\n\
               child: [{ rule: "tri", stroke: [0, 0, 1, 1], fill: [0, 0, 1, 1], scale: [200, 200], translate: [300, 300]}]},\n\
             { name: "tri",\n\
               child: [{ rule: "triangle" },\n\
-                      { rule: "pickDir", stroke: [0, 0, -0.05, 0] }]},\n\
+                      { rule: "pickDir", stroke: [0, 0, -0.05, 0], fill: [0, 0, 0, -0.3] }]},\n\
             { name: "pickDir",\n\
               policy: "random",\n\
               child: [{rule: "tri", prob: 0.2, scale: [0.7, 0.7], translate: [-0.577, -0.5], rotate: -0.4 },\n\

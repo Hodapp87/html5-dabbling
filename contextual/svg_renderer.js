@@ -95,7 +95,17 @@ SvgRenderer.prototype.setStrokeWidth = function(width) {
     this.target.setAttributeNS(null, "stroke-width", this.baseWidth * width); 
 };
 
-SvgRenderer.prototype.clear = function() {
+SvgRenderer.prototype.setStrokeColor = function(r, g, b, alpha) {
+    this.target.setAttributeNS(null, "stroke", rgb2string(r, g, b)); 
+    this.target.setAttributeNS(null, "stroke-opacity", String(alpha)); 
+};
+
+SvgRenderer.prototype.setFillColor = function(r, g, b, alpha) {
+    this.target.setAttributeNS(null, "fill", rgb2string(r, g, b)); 
+    this.target.setAttributeNS(null, "fill-opacity", String(alpha)); 
+};
+
+SvgRenderer.prototype.clear = function(r, g, b) {
     // Look for any SVG element that looks like ours, and get rid of it.
     var grp = this.svg.getElementById(this.ourSvgId);
     if (grp) {
@@ -103,4 +113,3 @@ SvgRenderer.prototype.clear = function() {
     }
     this.initGroup();
 };
-
