@@ -12,7 +12,7 @@ function GrammarParser(renderer) {
 
     // maxPrims is the (rough) maximum number of primitives to permit any
     // grammar to draw.
-    this.maxPrims = 100;
+    this.maxPrims = 10000;
 
     // Some constants for drawing a triangle:
     var s = 1;

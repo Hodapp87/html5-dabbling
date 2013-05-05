@@ -32,6 +32,10 @@ codeMirror {
     float: left;
 }
 
+.userSliders {
+    display: block;
+}
+
 body {
     /*background-color: #000000;*/
 }

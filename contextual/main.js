@@ -23,6 +23,9 @@ var grammarParse;
 var canvasRender;
 var svgRender;
 
+// This is set to whatever was last rendered with:
+var activeRenderer;
+
 var grammarString = "";
 
 // The function that generates the grammar:
@@ -58,6 +61,7 @@ function onLoad() {
     //svg.setAttributeNS(null, "height", 600);
     svgRender = new SvgRenderer(svg);
     grammarParse = new GrammarParser(canvasRender);
+    activeRenderer = canvasRender;
 
     // Listeners for mouse: Update mouseX/mouseY only when dragging.
     canvas.addEventListener("mousedown", function() { mouseClicked = true; }, true);
@@ -78,8 +82,8 @@ function onLoad() {
         // Make SVG invisible, and Canvas visible:
         svg.style.display = "none";
         canvas.style.display = "inline";
-        evalGrammar();
-        step(canvasRender);
+        activeRenderer = canvasRender;
+        render();
     };
 
     document.getElementById("renderSvgButton").onclick = function() {
@@ -87,8 +91,8 @@ function onLoad() {
         // Make Canvas invisible, and SVG visible:
         svg.style.display = "inline";
         canvas.style.display = "none";
-        evalGrammar();
-        step(svgRender);
+        activeRenderer = svgRender;
+        render();
     };
 
     document.getElementById("svgButton").onclick = function() {
@@ -111,6 +115,54 @@ function onLoad() {
     t0 = time.getTime();
 
     t = time.getTime();
+}
+
+// This sets up a slider on the page which controls the given parameter (if it
+// has not been done already), and returns the parameter's value.
+// name: a string which controls what name displayed on the slider
+// min and max: lower and upper bounds to permit the slider to move within
+// default_: the initial value of the slider
+function param(name, min, max, default_) {
+    var id, labelElem, sliderElem, steps, paramVal;
+
+    steps = 500;
+
+    // Check if we already made this element
+    id = "userSliders " + name;
+    sliderElem = document.getElementById(id);
+    if (sliderElem == null) {
+        // If not, create a new one (wrapped in a label)
+        labelElem = document.createElement("label");
+        labelElem.setAttribute("class", "userSliders");
+        labelElem.innerHTML = name;
+        document.getElementById('userSliders').appendChild(labelElem);
+
+        sliderElem = document.createElement("input");
+        sliderElem.setAttribute("id", id);
+        sliderElem.setAttribute("value", default_);
+        sliderElem.setAttribute("type", "range");
+        sliderElem.setAttribute("onChange", "render()");
+        //sliderElem.setAttribute("class", "userSliders");
+        labelElem.appendChild(sliderElem);
+
+        // Just return the default value if we're newly creating this slider.
+        paramVal = default_;
+    } else {
+        // If it existed already., get its current value.
+        paramVal = parseFloat(sliderElem.value);
+    }
+
+    // Set the min/max/step (even if it's redundant)
+    sliderElem.setAttribute("min", min);
+    sliderElem.setAttribute("max", max);
+    sliderElem.setAttribute("step", (max-min) / steps);
+
+    return paramVal;
+}
+
+function render() {
+    evalGrammar();
+    step(activeRenderer);
 }
 
 function evalGrammar() {
