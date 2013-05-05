@@ -9,9 +9,9 @@ function SvgRenderer(svgElement) {
     // until a pushTransform.
     this.transformStr = "";
 
-    width = parseInt(this.svg.getAttribute("width"));
-    height = parseInt(this.svg.getAttribute("height"));
-    this.baseWidth = 50 / (width + height);
+    this.width = parseInt(this.svg.getAttribute("width"));
+    this.height = parseInt(this.svg.getAttribute("height"));
+    this.baseWidth = 50 / (this.width + this.height);
 
     this.initGroup();
 }
@@ -25,10 +25,7 @@ SvgRenderer.prototype.initGroup = function() {
     // together and let the browser sort it out.
     this.target = document.createElementNS(this.svgNS,"g");
     this.target.setAttributeNS(null, "id", this.ourSvgId);
-    this.target.setAttributeNS(null, "fill","none");
-    this.target.setAttributeNS(null, "stroke-width", this.baseWidth); 
-    //this.target.setAttributeNS(null, "stroke", "black");
-    this.target.setAttributeNS(null, "stroke", Colors.rgb2hex(255, 0, 0));
+    this.setStrokeWidth(1);
     this.svg.appendChild(this.target);
 };
 
@@ -93,14 +90,17 @@ SvgRenderer.prototype.rotate = function(angleRadians) {
 
 SvgRenderer.prototype.setStrokeWidth = function(width) {
     this.target.setAttributeNS(null, "stroke-width", this.baseWidth * width); 
+    //this.target.setAttributeNS(null, "stroke-width", ); 
 };
 
 SvgRenderer.prototype.setStrokeColor = function(r, g, b, alpha) {
+    alpha = alpha == undefined ? 1 : alpha;
     this.target.setAttributeNS(null, "stroke", rgb2string(r, g, b)); 
     this.target.setAttributeNS(null, "stroke-opacity", String(alpha)); 
 };
 
 SvgRenderer.prototype.setFillColor = function(r, g, b, alpha) {
+    alpha = alpha == undefined ? 1 : alpha;
     this.target.setAttributeNS(null, "fill", rgb2string(r, g, b)); 
     this.target.setAttributeNS(null, "fill-opacity", String(alpha)); 
 };
@@ -111,5 +111,11 @@ SvgRenderer.prototype.clear = function(r, g, b) {
     if (grp) {
         this.svg.removeChild(grp);
     }
+
     this.initGroup();
+
+    // Make a rectangle that serves as the background.
+    this.setStrokeColor(0, 0, 0, 0); // no stroke
+    this.setFillColor(r, g, b);
+    this.drawSquare(0, 0, this.width, this.height);
 };

@@ -12,7 +12,7 @@ function GrammarParser(renderer) {
 
     // maxPrims is the (rough) maximum number of primitives to permit any
     // grammar to draw.
-    this.maxPrims = 10000;
+    this.maxPrims = 100;
 
     // Some constants for drawing a triangle:
     var s = 1;
@@ -50,12 +50,12 @@ GrammarParser.prototype.primitives.square = function(this_) {
 // drawRule: Call drawRuleRecurse with some sane initial values, starting from
 // a given grammar.
 GrammarParser.prototype.drawRule = function(grammar, seed) {
-    var bgColorHsv, bgColorRgb, f;
+    var bgHsv, bgColorRgb, f;
 
     Math.seedrandom(seed);
 
     // [H, S, V, A]
-    // H is in [0,360), 
+    // All values are in [0,1].
     var stroke = [0, 0, 1, 1];
     var fill = [0, 0, 1, 1];
 
@@ -66,13 +66,13 @@ GrammarParser.prototype.drawRule = function(grammar, seed) {
     this.renderer.setStrokeWidth(1);
 
     // Set the background color (white if not given)
-    bgColorHsv = grammar.background;
-    if (bgColorHsv) {
-        bgColorRgb = Colors.hsv2rgb(bgColorHsv);
+    bgHsv = grammar.background;
+    if (bgHsv) {
+        bgColorRgb = Colors.hsv2rgb(bgHsv[0] * 359.9, bgHsv[1] * 100, bgHsv[2] * 100);
+        this.renderer.clear(bgColorRgb.R * f, bgColorRgb.G * f, bgColorRgb.B * f)
     } else {
-        bgColorRgb = { R: 255, G: 255, B: 255 };
+        this.renderer.clear(1, 1, 1);
     }
-    this.renderer.clear(bgColorRgb.R * f, bgColorRgb.G * f, bgColorRgb.B * f);
 
     // Finally, draw away.
     this.drawRuleRecurse(grammar.startRuleRef, this.maxPrims, 1, 1, stroke, fill);
@@ -160,7 +160,6 @@ GrammarParser.prototype.drawRuleRecurse = function(rule, maxPrims, localScaleX,
 		newStroke[1] = clamp(stroke[1] + rule.child[i].stroke[1]);
 		newStroke[2] = clamp(stroke[2] + rule.child[i].stroke[2]);
 		newStroke[3] = clamp(stroke[3] + rule.child[i].stroke[3]);
-                console.log("newStroke: " + newStroke);
 	    } else {
 		for (j = 0; j < 4; ++j) {
 		    newStroke[j] = stroke[j];
@@ -174,7 +173,6 @@ GrammarParser.prototype.drawRuleRecurse = function(rule, maxPrims, localScaleX,
 		newFill[1] = clamp(fill[1] + rule.child[i].fill[1]);
 		newFill[2] = clamp(fill[2] + rule.child[i].fill[2]);
 		newFill[3] = clamp(fill[3] + rule.child[i].fill[3]);
-                console.log("newFill: " + newFill);
 	    } else {
 		for (j = 0; j < 4; ++j) {
 		    newFill[j] = fill[j];
