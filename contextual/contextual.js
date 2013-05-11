@@ -47,17 +47,55 @@ GrammarParser.prototype.primitives.square = function(this_) {
     this_.renderer.drawSquare(-0.5, -0.5, 0.5, 0.5);
 };
 
-// drawRule: Call drawRuleRecurse with some sane initial values, starting from
-// a given grammar.
-GrammarParser.prototype.drawRule = function(grammar, seed) {
-    var bgHsv, bgColorRgb, f;
+/*
+// drawRuleIterative: A version of drawRule written to be non-recursive.
+GrammarParser.prototype.drawRuleIterative = function(grammar, seed) {
+    // Some constants
+    var bgHsv;
+    var bgColorRgb
+    var f;
+
+    // All of these variables are treated as stacks that store the current
+    // state. Values are pushed on every time depth increases, and popped
+    // every time depth decreases.
+    function getBlankState() {
+        return {scaleX: 1,
+                scaleY: 1,
+                rotate: 0,
+                transX: 0,
+                transY: 0,
+                lineWidth: 1
+                // [H, S, V, A]; all values are in [0,1].
+                strokeHsv: [0, 0, 1, 1],
+                fillHsv: [0, 0, 1, 1],
+                rules: [],
+               };
+    }
+    var stack = [];
+    var nextState;
+
+    // you only need one stack element, per recursion depth.
+    // if this element includes the rule being processed, the stack must keep
+    // track of what it's already drawn.
+
+    // Current state
+    var state;
+    // Current rule
+    var rule;
+    // Queue of rules to process on this iteration
+    var rules;
+
+    // Temporary variables
+    var sample;
+    var prims = 0;
+    var primFn;
+    var childRuleName;
+    var childRule;
+    var i, j;
+
+    var primQueue = [];
 
     Math.seedrandom(seed);
-
-    // [H, S, V, A]
-    // All values are in [0,1].
-    var stroke = [0, 0, 1, 1];
-    var fill = [0, 0, 1, 1];
 
     // To correct between the range used in Colors.js (0-255) and in Canvas
     // (0-1) we precompute this scale factor.
@@ -73,75 +111,59 @@ GrammarParser.prototype.drawRule = function(grammar, seed) {
     } else {
         this.renderer.clear(1, 1, 1);
     }
-
-    // Finally, draw away.
-    this.drawRuleRecurse(grammar.startRuleRef, this.maxPrims, 1, 1, stroke, fill);
-}
-
-// drawRuleRecurse: Pass in a rule, as in, a structure like { name: "foo",
-// children: [ ... ] }, along with a maximum number of primitives to draw, and
-// an overall scale.  This will render that rule, recursing if needed, but
-// halting around the maximum number of primitives or at a certain minimum scale,
-// which ever is reached first.  (this.maxPrims sets the former limit;
-// this.scaleMinX, this.scaleMinY set the latter one)
-// This returns the number of primitives drawn, which may be zero.
-GrammarParser.prototype.drawRuleRecurse = function(rule, maxPrims, localScaleX,
-                                                   localScaleY, stroke, fill) {
-    var i, j, primFn, childRule, childRuleName, prims = 0, sample;
-    var more = true;
-
-    // Variables to hold transform parameters:
-    var scale, trans;
-    var scaleX, scaleY, rotate, transX, transY;
-    var oldLineWidth = 1, lineWidth = 1;
     
-    // Fill & stroke colors we'll pass forward; these are in HSV, normalized:
-    var newStroke = [0, 0, 1, 1];
-    var newFill = [0, 0, 1, 1];
-    // RGB counterparts; these are RGB colors from Colors.js:
-    var newStrokeRgb;
-    var newFillRgb;
-
     if (localScaleX < this.scaleMinX || localScaleY < this.scaleMinY) {
         return 0;
     }
 
-    if (rule.isRandom) {
-        sample = Math.random();
-    }
+    state = getBlankState();
+    state.rules = [grammar.startRuleRef];
+    while (prims < this.maxPrims) {
 
-    // For the normal policy: just iterate through
-    // If using 'random' policy: iterate and only execute upon finding the right
-    // cumulative value for the sample.
-    for (i = 0; more && i < rule.child.length; ++i) {
-        
-        if (rule.isRandom) {
-            if (sample > rule.child[i].cumul) {
-                continue;
+        // Try to grab a rule from our queue.
+        if (rules.length > 0) {
+            rule = state.rules.shift();
+        } else {
+            // If we're to the end of our queue:
+            if (stack.length == 0) {
+                // Or, rarely, the end of our stack
+                return;
             }
-            more = false;
+            state = stack.pop();
+            continue;
         }
-
-        childRuleName = rule.child[i].rule;
-
-        if (prims > maxPrims) {
-            return prims;
-        }
-
+        
         primFn = this.primitives[childRuleName];
-        // If this looks like a primitive, call that function.
         if (primFn) {
-            //console.log("Prim");
+            // If this is a primitive, then draw it and move non.
             prims += 1;
             primFn(this);
         } else {
+            // If it is not a primitive, then we need to push our state onto
+            // the stack, and recurse further.
+            stack.push(state);
+            state = getBlankState;
 
-            childRule = rule.child[i].ruleRef;
-            if (!childRule) {
-                console.log("Child " + childRuleName + " is not a primitive, and has no other definition!");
-                continue;
-            }
+	    if (rule.isRandom) {
+	        // If the policy is 'random', then just pick a single child rule
+	        // and append it to our queue of rules.
+	        sample = Math.random();
+	        for (i = 0; i < rule.child.length; ++i) {
+		    if (sample > rule.child[i].cumul) {
+                        state.rules.push(rule.child[i]);
+                        break;
+		    } 
+	        }
+	    } else {
+	        // Otherwise, add every rule onto the queue.
+                for (i = 0; i < rule.child.length; ++i) {
+                    state.rules.push(rule.child[i]);
+                }
+	    }
+        }
 
+	}
+    }
             // If not a primitive, then apply transforms and recurse deeper.
             scale = rule.child[i].scale;
             scaleX = scale ? scale[0] : 1.0;
@@ -203,6 +225,166 @@ GrammarParser.prototype.drawRuleRecurse = function(rule, maxPrims, localScaleX,
                                               maxPrims - prims,
                                               localScaleX * scaleX,
                                               localScaleY * scaleY,
+					      newStroke,
+					      newFill);
+            }
+            this.renderer.popTransform();
+            this.renderer.setStrokeWidth(oldLineWidth);
+        }
+    }
+    
+    return prims;
+}
+*/
+
+// drawRule: Call drawRuleRecurse with some sane initial values, starting from
+// a given grammar.
+GrammarParser.prototype.drawRule = function(grammar, seed) {
+    var bgHsv, bgColorRgb, f;
+
+    Math.seedrandom(seed);
+
+    // [H, S, V, A]
+    // All values are in [0,1].
+    var stroke = [0, 0, 1, 1];
+    var fill = [0, 0, 1, 1];
+
+    // To correct between the range used in Colors.js (0-255) and in Canvas
+    // (0-1) we precompute this scale factor.
+    f = 1 / 255;
+
+    this.renderer.setStrokeWidth(1);
+
+    // Set the background color (white if not given)
+    bgHsv = grammar.background;
+    if (bgHsv) {
+        bgColorRgb = Colors.hsv2rgb(bgHsv[0] * 359.9, bgHsv[1] * 100, bgHsv[2] * 100);
+        this.renderer.clear(bgColorRgb.R * f, bgColorRgb.G * f, bgColorRgb.B * f)
+    } else {
+        this.renderer.clear(1, 1, 1);
+    }
+
+    // Finally, draw away.
+    this.drawRuleRecurse(grammar.startRuleRef, this.maxPrims, [1, 1], stroke, fill);
+}
+
+// drawRuleRecurse: Pass in a rule, as in, a structure like { name: "foo",
+// children: [ ... ] }, an overall [x,y] scale, and stroke and fill colors.
+// This will render that rule, recursing if needed, but halting around the
+// maximum number of primitives or at a certain minimum scale, which ever is
+// reached first.  (this.maxPrims sets the former limit; this.scaleMinX,
+// this.scaleMinY set the latter one)
+// This returns the number of primitives drawn, which may be zero.
+GrammarParser.prototype.drawRuleRecurse = function(rule, maxPrims, localScale, stroke, fill) {
+    var i, j, primFn, childRule, childRuleName, prims = 0, sample;
+    var more = true;
+
+    // Variables to hold transform parameters:
+    var scale, trans, rotate;
+    var oldLineWidth = 1, lineWidth = 1;
+    
+    // Fill & stroke colors we'll pass forward; these are in HSV, normalized:
+    var newStroke = [0, 0, 1, 1];
+    var newFill = [0, 0, 1, 1];
+    // RGB counterparts; these are RGB colors from Colors.js:
+    var newStrokeRgb;
+    var newFillRgb;
+
+    if (localScale[0] < this.scaleMinX || localScale[1] < this.scaleMinY) {
+        return 0;
+    }
+
+    if (rule.isRandom) {
+        sample = Math.random();
+    }
+
+    // For the normal policy: just iterate through
+    // If using 'random' policy: iterate and only execute upon finding the right
+    // cumulative value for the sample.
+    for (i = 0; more && i < rule.child.length; ++i) {
+        
+        if (rule.isRandom) {
+            if (sample > rule.child[i].cumul) {
+                continue;
+            }
+            more = false;
+        }
+
+        childRuleName = rule.child[i].rule;
+
+        if (prims > maxPrims) {
+            return prims;
+        }
+
+        primFn = this.primitives[childRuleName];
+        // If this looks like a primitive, call that function.
+        if (primFn) {
+            //console.log("Prim");
+            prims += 1;
+            primFn(this);
+        } else {
+
+            childRule = rule.child[i].ruleRef;
+            if (!childRule) {
+                console.log("Child " + childRuleName + " is not a primitive, and has no other definition!");
+                continue;
+            }
+
+            // If not a primitive, then apply transforms and recurse deeper.
+            scale = rule.child[i].scale || [1,1];
+            trans = rule.child[i].translate || [0,0];
+            rotate = rule.child[i].rotate || 0;
+	    
+	    // Likewise, color transforms:
+	    if (rule.child[i].stroke != null) {
+		newStroke[0] = stroke[0] + rule.child[i].stroke[0];
+                // since H is cyclical:
+                newStroke[0] -= Math.floor(newStroke[0]);
+		newStroke[1] = clamp(stroke[1] + rule.child[i].stroke[1]);
+		newStroke[2] = clamp(stroke[2] + rule.child[i].stroke[2]);
+		newStroke[3] = clamp(stroke[3] + rule.child[i].stroke[3]);
+	    } else {
+		for (j = 0; j < 4; ++j) {
+		    newStroke[j] = stroke[j];
+		}
+	    }
+            newStrokeRgb = Colors.hsv2rgb(newStroke[0] * 359.9, newStroke[1] * 100, newStroke[2] * 100);
+
+	    if (rule.child[i].fill != null) {
+		newFill[0] = fill[0] + rule.child[i].fill[0];
+                newFill[0] -= Math.floor(newFill[0]);
+		newFill[1] = clamp(fill[1] + rule.child[i].fill[1]);
+		newFill[2] = clamp(fill[2] + rule.child[i].fill[2]);
+		newFill[3] = clamp(fill[3] + rule.child[i].fill[3]);
+	    } else {
+		for (j = 0; j < 4; ++j) {
+		    newFill[j] = fill[j];
+		}
+	    }
+            newFillRgb = Colors.hsv2rgb(newFill[0] * 359.9, newFill[1] * 100, newFill[2] * 100);
+	    
+            //console.log("Push " + scaleX + "," + scaleY + " +" + transX + "," + transY);
+            this.renderer.setStrokeWidth(lineWidth);
+            this.renderer.pushTransform();
+            oldLineWidth = lineWidth;
+            lineWidth /= scale[0];
+            {
+                this.renderer.translate(trans[0], trans[1]);
+                this.renderer.rotate(rotate);
+                this.renderer.scale(scale[0], scale[1]);
+		this.renderer.setStrokeColor(newStrokeRgb.R / 255,
+                                             newStrokeRgb.G / 255,
+                                             newStrokeRgb.B / 255,
+                                             newStroke[3]);
+		this.renderer.setFillColor(newFillRgb.R / 255,
+                                           newFillRgb.G / 255,
+                                           newFillRgb.B / 255,
+                                           newFill[3]);
+
+                // Accumulate local scales, and decrement recursion depth.
+                prims += this.drawRuleRecurse(childRule,
+                                              maxPrims - prims,
+                                              [localScale[0] * scale[0], localScale[1] * scale[1]],
 					      newStroke,
 					      newFill);
             }
