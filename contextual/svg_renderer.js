@@ -115,7 +115,7 @@ SvgRenderer.prototype.clear = function(r, g, b) {
     this.initGroup();
 
     // Make a rectangle that serves as the background.
-    this.setStrokeColor(0, 0, 0, 0); // no stroke
+    this.setStrokeColor(0, 0, 0, 1); // black stroke
     this.setFillColor(r, g, b);
     this.drawSquare(0, 0, this.width, this.height);
 };

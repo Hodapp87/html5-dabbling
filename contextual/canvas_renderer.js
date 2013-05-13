@@ -8,10 +8,12 @@ function CanvasRenderer(canvasElement) {
 
     console.log("Received " + this.canvas.width + "x" + this.canvas.height + " canvas.");
 
-    // These two store a stack of styles, which we treat as transforms and need
-    // to keep track of with pushTransform & popTransform
+    // These three store a stack of stroke style, fill style, and stroke width,
+    // which we treat as transforms and need to keep track of with
+    // pushTransform & popTransform
     this.strokeStack = [];
     this.fillStack = [];
+    this.strokeWidthStack = [];
 }
 
 CanvasRenderer.prototype = new Renderer();
@@ -42,12 +44,14 @@ CanvasRenderer.prototype.pushTransform = function() {
     this.context.save();
     this.strokeStack.push(this.context.strokeStyle);
     this.fillStack.push(this.context.fillStyle);
+    this.strokeWidthStack.push(this.context.lineWidth);
 };
 
 CanvasRenderer.prototype.popTransform = function() {
     this.context.restore();
     this.context.strokeStyle = this.strokeStack.pop();
     this.context.fillStyle = this.fillStack.pop();
+    this.context.lineWidth = this.strokeWidthStack.pop();
 };
 
 CanvasRenderer.prototype.scale = function(scaleX, scaleY) {
