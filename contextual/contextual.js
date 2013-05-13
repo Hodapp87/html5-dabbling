@@ -49,10 +49,6 @@ GrammarParser.prototype.primitives.square = function(this_) {
 
 // drawRuleIterative: A version of drawRule written to be non-recursive.
 GrammarParser.prototype.drawRuleIterative = function(grammar, seed) {
-    // Some constants
-    var bgHsv;
-    var bgColorRgb
-    var f;
 
     // All of these variables are treated as stacks that store the current
     // state. Values are pushed on every time depth increases, and popped
@@ -63,39 +59,33 @@ GrammarParser.prototype.drawRuleIterative = function(grammar, seed) {
                 // [H, S, V, A]; all values are in [0,1].
                 strokeHsv: [0, 0, 1, 1],
                 fillHsv: [0, 0, 1, 1],
-                children: [],
+                children: [],   // a queue of children we must render still
                };
     }
+    // 'stack' = The states we store for each recursion level; each element
+    // will be a dictionary like getBlankState() returns.
     var stack = [];
-    var nextState;
     
-    // scaleDefer is a check on the number of recursion levels before scale
-    // checks are done.
+    var state; // The current state (as a dictionary like from getBlankState)
+    var child; // Current child (rule + transform)
+    var rule;  // The current rule (if not a primitive)
+
+    var prims = 0; // Running total of number of primitives
+
+    var bgHsv; // Background color as [H, S, V], all in [0,1]
+
+    // ===== Constants =====
+    // 'scaleDefer' = the minimum recursion level before we check that scale
+    // has not exceeded this.scaleMinX/Y
     var scaleDefer = 2;
-
-    // Current state
-    var state;
-    // Current child (rule + transform)
-    var child;
-    var rule;
-    var newState;
-
-    // Temporary variables
-    var sample;
-    var prims = 0;
-    var primFn;
-    var childRuleName;
-    var childRule;
-    var i, j;
-
-    //var pushPop = 0;
-
-    Math.seedrandom(seed);
-
     // To correct between the range used in Colors.js (0-255) and in Canvas
     // (0-1) we precompute this scale factor.
-    f = 1 / 255;
+    var f = 1/255;
 
+    // ===== Temporary variables =====
+    var sample, primFn, i, bgColorRgb;
+    
+    Math.seedrandom(seed);
     this.renderer.setStrokeWidth(1);
 
     // Set the background color (white if not given)
@@ -106,21 +96,24 @@ GrammarParser.prototype.drawRuleIterative = function(grammar, seed) {
     } else {
         this.renderer.clear(1, 1, 1);
     }
-    
+
+    // Set up the starting point for our recursion
     state = getBlankState();
     state.children = [{rule: grammar.startRule,
                        ruleRef: grammar.startRuleRef}];
 
+    // Finally, iterate away on our rule tree
     while (prims < this.maxPrims) {
 
-        // If our queue is empty or we've hit the current drawing limit, then pop
-        // off a transform and move back a node.
+        // If we've run out of children to draw at this level, or the children
+        // are all at too small of a scale to matter, then move back to the
+        // parent.
         if (state.children.length == 0 ||
             (stack.length >= scaleDefer && 
              (state.localScaleX < this.scaleMinX ||
               state.localScaleY < this.scaleMinY)))
         {
-            // or, rarely, quit drawing completely.
+            // Rarely: We've managed to traverse the whole tree, so just quit.
             if (stack.length == 0) {
                 break;
             }
@@ -133,7 +126,7 @@ GrammarParser.prototype.drawRuleIterative = function(grammar, seed) {
         // Otherwise, grab the next child from our queue.
         child = state.children.shift();
 
-        // Apply the requisite transforms.
+        // Apply the requisite transforms for this child.
         if (child.translate != undefined) {
             this.renderer.translate(child.translate[0], child.translate[1]);
         }
@@ -145,7 +138,9 @@ GrammarParser.prototype.drawRuleIterative = function(grammar, seed) {
             state.localScaleX *= child.scale[0];
             state.localScaleY *= child.scale[1];
         }
+        // TODO: Add color and width transformations!
         
+        // Actually draw the child, which might mean recursing further.
         primFn = this.primitives[child.rule];
         if (primFn) {
             // If this is a primitive, then draw it and move on.
@@ -157,16 +152,14 @@ GrammarParser.prototype.drawRuleIterative = function(grammar, seed) {
             // If it is not a primitive, push our state onto the stack, make up
             // a new state to work with, and recurse further.
             stack.push(state);
-            //pushPop += 1;
-            this.renderer.pushTransform();
-
             state = getBlankState();
             state.localScaleX = stack[stack.length-1].localScaleX;
             state.localScaleY = stack[stack.length-1].localScaleY;
+            //pushPop += 1;
+            this.renderer.pushTransform();
 
 	    if (rule.isRandom) {
-	        // If the policy is 'random', then just pick a single child rule
-	        // and append it to our queue of rules.
+	        // If policy is 'random', append single random child to queue
 	        sample = Math.random();
 	        for (i = 0; i < rule.children.length; ++i) {
 		    if (sample > rule.children[i].cumul) {
@@ -175,7 +168,7 @@ GrammarParser.prototype.drawRuleIterative = function(grammar, seed) {
 		    } 
 	        }
 	    } else {
-	        // Otherwise, add every child onto the queue.
+	        // Otherwise, add every child onto the queue
                 for (i = 0; i < rule.children.length; ++i) {
                     state.children.push(rule.children[i]);
                 }
