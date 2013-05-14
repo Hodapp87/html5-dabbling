@@ -106,10 +106,14 @@ SvgRenderer.prototype.setFillColor = function(r, g, b, alpha) {
 };
 
 SvgRenderer.prototype.clear = function(r, g, b) {
+    var grp;
     // Look for any SVG element that looks like ours, and get rid of it.
-    var grp = this.svg.getElementById(this.ourSvgId);
-    if (grp) {
-        this.svg.removeChild(grp);
+    if (this.svg.getElementById)
+    {
+	grp = this.svg.getElementById(this.ourSvgId);
+	if (grp) {
+            this.svg.removeChild(grp);
+	}
     }
 
     this.initGroup();
