@@ -126,6 +126,13 @@ GrammarParser.prototype.drawRuleIterative = function(grammar, seed) {
         // Otherwise, grab the next child from our queue.
         child = state.children.shift();
 
+	// If this is not a primitive, and we need to resolve child rules, we
+	// must save our current transform for later.
+        primFn = this.primitives[child.rule];
+	if (!primFn) {
+	    this.renderer.pushTransform();
+	}
+
         // Apply the requisite transforms for this child.
         if (child.translate != undefined) {
             this.renderer.translate(child.translate[0], child.translate[1]);
@@ -141,7 +148,6 @@ GrammarParser.prototype.drawRuleIterative = function(grammar, seed) {
         // TODO: Add color and width transformations!
         
         // Actually draw the child, which might mean recursing further.
-        primFn = this.primitives[child.rule];
         if (primFn) {
             // If this is a primitive, then draw it and move on.
             prims += 1;
@@ -156,7 +162,7 @@ GrammarParser.prototype.drawRuleIterative = function(grammar, seed) {
             state.localScaleX = stack[stack.length-1].localScaleX;
             state.localScaleY = stack[stack.length-1].localScaleY;
             //pushPop += 1;
-            this.renderer.pushTransform();
+            //this.renderer.pushTransform();
 
 	    if (rule.isRandom) {
 	        // If policy is 'random', append single random child to queue
