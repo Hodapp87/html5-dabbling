@@ -127,7 +127,7 @@ var grammarStringStart2 = '{ \n\
 }; \n\
 ';
 
-var grammarStringStart2 = '(function (t, params) {\n\
+var grammarStringStart4 = '(function (t, params) {\n\
     var deltaX = param("delta X", 0, 500, 200);\n\
     var deltaY = param("delta Y", 0, 500, 200);\n\
     var delta1 = (1 + Math.sin(t / 100)) / 2;\n\
@@ -135,7 +135,7 @@ var grammarStringStart2 = '(function (t, params) {\n\
     console.log("delta1: " + delta1 + ", delta2: " + delta2);\n\
     return {\n\
         startRule: "top",\n\
-        //background: [0, 0, 0], // this is an HSV color\n\
+        background: [0, 0, 0], // this is an HSV color\n\
         rules: [\n\
             { name: "top",\n\
               children: [{ rule: "tri", stroke: [0, 0, 1, 1], fill: [0, 0, 1, 1], scale: [200, 200], translate: [deltaX, deltaY]}]},\n\

@@ -213,9 +213,3 @@ function evalGrammar() {
     resolveRules(grammar, GrammarParser.prototype.primitives);
     accumProbability(grammar);
 }
-
-function reseed() {
-    document.getElementById("seed").value = Math.seedrandom();
-}
-
-window.addEventListener("load", onLoad, true);
