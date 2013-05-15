@@ -47,21 +47,30 @@ GrammarParser.prototype.primitives.square = function(this_) {
     this_.renderer.drawSquare(-0.5, -0.5, 0.5, 0.5);
 };
 
-// drawRuleIterative: A version of drawRule written to be non-recursive.
+// drawRuleIterative: Pass in a rule, as in, a structure like { name: "foo",
+// children: [ ... ] }, an overall [x,y] scale, and stroke and fill colors.
+// This will render that rule, recursing if needed, but halting around the
+// maximum number of primitives or at a certain minimum scale, which ever is
+// reached first.
+// This returns the number of primitives drawn.
 GrammarParser.prototype.drawRuleIterative = function(grammar, seed) {
 
     // All of these variables are treated as stacks that store the current
     // state. Values are pushed on every time depth increases, and popped
     // every time depth decreases.
+    // (However, the only state that we must keep around explicitly is the
+    // state that we must perform computations on.  In the case of translation,
+    // rotation, and stroke width, we leave these alone because the renderer
+    // handles composing these transformations for us.)
     function getBlankState() {
-        return {localScaleX: 1,
-                localScaleY: 1,
-                // [H, S, V, A]; all values are in [0,1].
-                strokeHsv: [0, 0, 1, 1],
-                fillHsv: [0, 0, 1, 1],
-                children: [],   // a queue of children we must render still
+        return {localScaleX: 1, // Overall X scale (to stop recursion at some level)
+                localScaleY: 1, // Likewise for Y
+                strokeHsv: [0, 0, 1, 1], // Stroke color [H,S,V,A], all in [0,1]
+                fillHsv: [0, 0, 1, 1],  // Fill color, same convention
+                children: [],  // Queue of children we must render still
                };
     }
+
     // 'stack' = The states we store for each recursion level; each element
     // will be a dictionary like getBlankState() returns.
     var stack = [];
@@ -83,44 +92,49 @@ GrammarParser.prototype.drawRuleIterative = function(grammar, seed) {
     var f = 1/255;
 
     // ===== Temporary variables =====
-    var sample, primFn, i, bgColorRgb;
+    var sample, primFn, i, bgColorRgb, strokeHsv, strokeRgb, fillHsv, fillRgb;
     
+    // ==== Initial setup ====
     Math.seedrandom(seed);
     this.renderer.setStrokeWidth(1);
 
-    // Set the background color (white if not given)
     bgHsv = grammar.background;
     if (bgHsv) {
-        bgColorRgb = Colors.hsv2rgb(bgHsv[0] * 359.9, bgHsv[1] * 100, bgHsv[2] * 100);
+        bgColorRgb = Colors.hsv2rgb(bgHsv[0] * 360, bgHsv[1] * 100, bgHsv[2] * 100);
         this.renderer.clear(bgColorRgb.R * f, bgColorRgb.G * f, bgColorRgb.B * f)
     } else {
         this.renderer.clear(1, 1, 1);
     }
 
-    // Set up the starting point for our recursion
     state = getBlankState();
     state.children = [{rule: grammar.startRule,
                        ruleRef: grammar.startRuleRef}];
 
-    // Finally, iterate away on our rule tree
-    while (prims < this.maxPrims) {
+    // ==== Begin drawing by iterating over a recursive structure! ====
+    while (prims <= this.maxPrims) {
 
         // If we've run out of children to draw at this level, or the children
-        // are all at too small of a scale to matter, then move back to the
-        // parent.
+        // are all at too small of a scale to matter, then backtrack.
         if (state.children.length == 0 ||
             (stack.length >= scaleDefer && 
              (state.localScaleX < this.scaleMinX ||
               state.localScaleY < this.scaleMinY)))
         {
-            // Rarely: We've managed to traverse the whole tree, so just quit.
+            // Rarely: Give up, because we backtracked our way out of the tree.
             if (stack.length == 0) {
                 break;
             }
             state = stack.pop();
-            //pushPop -= 1;
             this.renderer.popTransform();
             continue;
+
+            // (Another possible check we may do is on the alpha channel. If it
+            // is below some threshold near zero, continuing to render this path
+            // may be a waste of time.  Some more sophisticated strategies might
+            // also be good here, such as marking a specific branch as being
+            // monotonically decreasing in size or opacity, to exclude cases
+            // where alpha channel or scale might temporarily be too low to be
+            // visible, but will increase sometimes.)
         }
 
         // Otherwise, grab the next child from our queue.
@@ -133,25 +147,45 @@ GrammarParser.prototype.drawRuleIterative = function(grammar, seed) {
 	    this.renderer.pushTransform();
 	}
 
-        // Apply the requisite transforms for this child.
+        // ==== Child transforms ====
         if (child.translate != undefined) {
             this.renderer.translate(child.translate[0], child.translate[1]);
         }
+
         if (child.rotate != undefined) {
             this.renderer.rotate(child.rotate);
         }
+
         if (child.scale != undefined) {
             this.renderer.scale(child.scale[0], child.scale[1]);
             state.localScaleX *= child.scale[0];
             state.localScaleY *= child.scale[1];
         }
-        // TODO: Add color and width transformations!
+
+	if (child.stroke != null) {
+            strokeHsv = adjustColor(state.strokeHsv, child.stroke);
+            strokeRgb = Colors.hsv2rgb(strokeHsv[0] * 360, strokeHsv[1] * 100, strokeHsv[2] * 100);
+	    this.renderer.setStrokeColor(strokeRgb.R*f, strokeRgb.G*f, strokeRgb.B*f, strokeHsv[3]);
+	} else {
+            strokeHsv = state.strokeHsv;
+        }
+
+	if (child.fill != null) {
+            fillHsv = adjustColor(state.fillHsv, child.fill);
+            fillRgb = Colors.hsv2rgb(fillHsv[0] * 360, fillHsv[1] * 100, fillHsv[2] * 100);
+	    this.renderer.setFillColor(fillRgb.R*f, fillRgb.G*f, fillRgb.B*f, fillHsv[3]);
+	} else {
+            fillHsv = state.fillHsv;
+        }
         
-        // Actually draw the child, which might mean recursing further.
+        // ==== Drawing what's here (which might mean recursing further) ====
         if (primFn) {
-            // If this is a primitive, then draw it and move on.
+
+            // If this is a primitive, draw it and move on.  Since our path ends
+            // here, we have no need to store any transforms for later use.
             prims += 1;
             primFn(this);
+
         } else {
             rule = child.ruleRef;
 
@@ -161,11 +195,11 @@ GrammarParser.prototype.drawRuleIterative = function(grammar, seed) {
             state = getBlankState();
             state.localScaleX = stack[stack.length-1].localScaleX;
             state.localScaleY = stack[stack.length-1].localScaleY;
-            //pushPop += 1;
-            //this.renderer.pushTransform();
+            state.strokeHsv = strokeHsv;
+            state.fillHsv = fillHsv;
 
 	    if (rule.isRandom) {
-	        // If policy is 'random', append single random child to queue
+	        // If policy is 'random', append single random child to queue.
 	        sample = Math.random();
 	        for (i = 0; i < rule.children.length; ++i) {
 		    if (sample > rule.children[i].cumul) {
@@ -174,173 +208,14 @@ GrammarParser.prototype.drawRuleIterative = function(grammar, seed) {
 		    } 
 	        }
 	    } else {
-	        // Otherwise, add every child onto the queue
+	        // Otherwise, add every child onto the queue.
                 for (i = 0; i < rule.children.length; ++i) {
                     state.children.push(rule.children[i]);
                 }
 	    }
         }
-    }
-    //console.log("DEBUG: stack balance=" + pushPop);
-    return prims;
-}
 
-// drawRule: Call drawRuleRecurse with some sane initial values, starting from
-// a given grammar.
-GrammarParser.prototype.drawRule = function(grammar, seed) {
-    var bgHsv, bgColorRgb, f;
-
-    Math.seedrandom(seed);
-
-    // [H, S, V, A]
-    // All values are in [0,1].
-    var stroke = [0, 0, 1, 1];
-    var fill = [0, 0, 1, 1];
-
-    // To correct between the range used in Colors.js (0-255) and in Canvas
-    // (0-1) we precompute this scale factor.
-    f = 1 / 255;
-
-    this.renderer.setStrokeWidth(1);
-
-    // Set the background color (white if not given)
-    bgHsv = grammar.background;
-    if (bgHsv) {
-        bgColorRgb = Colors.hsv2rgb(bgHsv[0] * 359.9, bgHsv[1] * 100, bgHsv[2] * 100);
-        this.renderer.clear(bgColorRgb.R * f, bgColorRgb.G * f, bgColorRgb.B * f)
-    } else {
-        this.renderer.clear(1, 1, 1);
-    }
-
-    // Finally, draw away.
-    this.drawRuleRecurse(grammar.startRuleRef, this.maxPrims, [1, 1], stroke, fill);
-}
-
-// drawRuleRecurse: Pass in a rule, as in, a structure like { name: "foo",
-// children: [ ... ] }, an overall [x,y] scale, and stroke and fill colors.
-// This will render that rule, recursing if needed, but halting around the
-// maximum number of primitives or at a certain minimum scale, which ever is
-// reached first.  (this.maxPrims sets the former limit; this.scaleMinX,
-// this.scaleMinY set the latter one)
-// This returns the number of primitives drawn, which may be zero.
-GrammarParser.prototype.drawRuleRecurse = function(rule, maxPrims, localScale, stroke, fill) {
-    var i, j, primFn, childRule, childRuleName, prims = 0, sample;
-    var more = true;
-
-    // Variables to hold transform parameters:
-    var scale, trans, rotate;
-    var oldLineWidth = 1, lineWidth = 1;
-    
-    // Fill & stroke colors we'll pass forward; these are in HSV, normalized:
-    var newStroke = [0, 0, 1, 1];
-    var newFill = [0, 0, 1, 1];
-    // RGB counterparts; these are RGB colors from Colors.js:
-    var newStrokeRgb;
-    var newFillRgb;
-
-    if (localScale[0] < this.scaleMinX || localScale[1] < this.scaleMinY) {
-        return 0;
-    }
-
-    if (rule.isRandom) {
-        sample = Math.random();
-    }
-
-    // For the normal policy: just iterate through
-    // If using 'random' policy: iterate and only execute upon finding the right
-    // cumulative value for the sample.
-    for (i = 0; more && i < rule.children.length; ++i) {
-        
-        if (rule.isRandom) {
-            if (sample > rule.children[i].cumul) {
-                continue;
-            }
-            more = false;
-        }
-
-        childRuleName = rule.children[i].rule;
-
-        if (prims > maxPrims) {
-            return prims;
-        }
-
-        primFn = this.primitives[childRuleName];
-        // If this looks like a primitive, call that function.
-        if (primFn) {
-            //console.log("Prim");
-            prims += 1;
-            primFn(this);
-        } else {
-
-            childRule = rule.children[i].ruleRef;
-            if (!childRule) {
-                console.log("Child " + childRuleName + " is not a primitive, and has no other definition!");
-                continue;
-            }
-
-            // If not a primitive, then apply transforms and recurse deeper.
-            scale = rule.children[i].scale || [1,1];
-            trans = rule.children[i].translate || [0,0];
-            rotate = rule.children[i].rotate || 0;
-	    
-	    // Likewise, color transforms:
-	    if (rule.children[i].stroke != null) {
-		newStroke[0] = stroke[0] + rule.children[i].stroke[0];
-                // since H is cyclical:
-                newStroke[0] -= Math.floor(newStroke[0]);
-		newStroke[1] = clamp(stroke[1] + rule.children[i].stroke[1]);
-		newStroke[2] = clamp(stroke[2] + rule.children[i].stroke[2]);
-		newStroke[3] = clamp(stroke[3] + rule.children[i].stroke[3]);
-	    } else {
-		for (j = 0; j < 4; ++j) {
-		    newStroke[j] = stroke[j];
-		}
-	    }
-            newStrokeRgb = Colors.hsv2rgb(newStroke[0] * 359.9, newStroke[1] * 100, newStroke[2] * 100);
-
-	    if (rule.children[i].fill != null) {
-		newFill[0] = fill[0] + rule.children[i].fill[0];
-                newFill[0] -= Math.floor(newFill[0]);
-		newFill[1] = clamp(fill[1] + rule.children[i].fill[1]);
-		newFill[2] = clamp(fill[2] + rule.children[i].fill[2]);
-		newFill[3] = clamp(fill[3] + rule.children[i].fill[3]);
-	    } else {
-		for (j = 0; j < 4; ++j) {
-		    newFill[j] = fill[j];
-		}
-	    }
-            newFillRgb = Colors.hsv2rgb(newFill[0] * 359.9, newFill[1] * 100, newFill[2] * 100);
-	    
-            //console.log("Push " + scaleX + "," + scaleY + " +" + transX + "," + transY);
-            this.renderer.setStrokeWidth(lineWidth);
-            this.renderer.pushTransform();
-            oldLineWidth = lineWidth;
-            lineWidth /= scale[0];
-            {
-                this.renderer.translate(trans[0], trans[1]);
-                this.renderer.rotate(rotate);
-                this.renderer.scale(scale[0], scale[1]);
-		this.renderer.setStrokeColor(newStrokeRgb.R / 255,
-                                             newStrokeRgb.G / 255,
-                                             newStrokeRgb.B / 255,
-                                             newStroke[3]);
-		this.renderer.setFillColor(newFillRgb.R / 255,
-                                           newFillRgb.G / 255,
-                                           newFillRgb.B / 255,
-                                           newFill[3]);
-
-                // Accumulate local scales, and decrement recursion depth.
-                prims += this.drawRuleRecurse(childRule,
-                                              maxPrims - prims,
-                                              [localScale[0] * scale[0], localScale[1] * scale[1]],
-					      newStroke,
-					      newFill);
-            }
-            this.renderer.popTransform();
-            this.renderer.setStrokeWidth(oldLineWidth);
-        }
-    }
-    
+    } // while (prims < this.maxPrims)
     return prims;
 }
 

@@ -192,7 +192,7 @@ function step(renderer) {
     t = time.getTime();
     
     grammarParse.renderer = renderer;
-    grammarParse.drawRule(grammar, seed);
+    grammarParse.drawRuleIterative(grammar, seed);
 
     //window.requestAnimFrame(step);
 }
