@@ -96,15 +96,34 @@ function onLoad() {
     };
 
     document.getElementById("svgButton").onclick = function() {
-        var svgLink, dlElem;
-        dlElem = document.getElementById('downloadLinks');
+        var svgLink, dlElem, oldRenderer, svgBigRender, svgTemp;
 
+	// Make sure we have a place to put this SVG scene graph once we
+	// create it; taking the time to create it and then having nowhere to
+	// put it would be rather senseless.
+        dlElem = document.getElementById('downloadLinks');
         svgLink = document.getElementById(svgDownloadId);
         if (svgLink) {
             dlElem.removeChild(svgLink);
         }
 
-        svgLink = makeDownload(svg, "file.svg", "Download SVG");
+	// Make a temporary 'svg' element, but don't put it in our DOM.
+	svgTemp = document.createElement("svg");
+	//svgTemp = svg;
+	
+	// Make a new SvgRenderer with a much higher primitives limit, and use
+	// that separate element as its target.
+	svgBigRender = new SvgRenderer(svgTemp);
+	svgBigRender.maxPrims = 100000;
+
+	// Swap in our renderer, do the render, and swap the old one back in.
+	oldRenderer = activeRenderer;
+	activeRenderer = svgBigRender;
+	render();
+	activeRenderer = oldRenderer;
+	
+	// Finally, dump this whole tree to a file.
+        svgLink = makeDownload(svgTemp, "file.svg", "Download SVG");
         svgLink.setAttribute("id", svgDownloadId);
         dlElem.appendChild(svgLink);
     };
@@ -161,8 +180,21 @@ function param(name, min, max, default_) {
 }
 
 function render() {
+
     evalGrammar();
-    step(activeRenderer);
+
+    var time = new Date();
+    var seed;
+
+    seed = document.getElementById("seed").value;
+
+    dt = (time.getTime() - t) / 1000;
+    t = time.getTime();
+    
+    grammarParse.renderer = activeRenderer;
+    grammarParse.drawRuleIterative(grammar, seed);
+
+    //window.requestAnimFrame(step);
 }
 
 function evalGrammar() {
@@ -180,21 +212,6 @@ function evalGrammar() {
 
     resolveRules(grammar, GrammarParser.prototype.primitives);
     accumProbability(grammar);
-}
-
-function step(renderer) {
-    var time = new Date();
-    var seed;
-
-    seed = document.getElementById("seed").value;
-
-    dt = (time.getTime() - t) / 1000;
-    t = time.getTime();
-    
-    grammarParse.renderer = renderer;
-    grammarParse.drawRule(grammar, seed);
-
-    //window.requestAnimFrame(step);
 }
 
 function reseed() {
