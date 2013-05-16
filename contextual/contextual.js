@@ -27,7 +27,6 @@ function GrammarParser(renderer) {
     this.triX2 = h * Math.cos(ang2);
     this.triY2 = h * Math.sin(ang2);
 
-
     // These hold a stack of colors and alpha values for stroke and fill,
     // which we treat as being part of the transform.
     this.strokeStack = [];
@@ -201,9 +200,11 @@ GrammarParser.prototype.drawRuleIterative = function(grammar, seed) {
 	    if (rule.isRandom) {
 	        // If policy is 'random', append single random child to queue.
 	        sample = Math.random();
+                //console.log("Sample = " + sample);
 	        for (i = 0; i < rule.children.length; ++i) {
-		    if (sample > rule.children[i].cumul) {
+		    if (sample < rule.children[i].cumul) {
                         state.children.push(rule.children[i]);
+                        //console.log("Adding child " + i);
                         break;
 		    } 
 	        }
@@ -254,7 +255,7 @@ function resolveRules(grammar, prims) {
         ruleName = rules[i].name;
 
         if (nameToRule[ruleName]) {
-            console.log("Rule " + ruleName + " was already used! Ignoring conflicting definition.");
+            console.warn("Rule " + ruleName + " was already used! Ignoring conflicting definition.");
             error = true;
         } else {
             nameToRule[ruleName] = rules[i];
@@ -271,7 +272,7 @@ function resolveRules(grammar, prims) {
             ruleName = children[j].rule;
 
             if (!nameToRule[ruleName] && !prims[ruleName]) {
-                console.log("Name " + ruleName + " not found!");
+                console.error("Name " + ruleName + " not found!");
                 error = true;
             } else {
                 children[j].ruleRef = nameToRule[ruleName];
@@ -297,19 +298,19 @@ function validateGrammar(grammar) {
 
     // Check startRuleRef
     if (grammar.startRule == null) {
-	console.log("Grammar needs a start rule ('startRuleRef' property).");
+	console.error("Grammar needs a start rule ('startRuleRef' property).");
 	fails += 1;
     } else if (typeof grammar.startRule !== "string") {
-	console.log("startRuleRef must be a string");
+	console.error("startRuleRef must be a string");
 	fails += 1;
     }
 
     // Check rules
     if (grammar.rules == null) {
-	console.log("Grammar needs rules ('rules' property).");
+	console.error("Grammar needs rules ('rules' property).");
 	fails += 1;
     } else if (grammar.rules.constructor != Array) {
-	console.log("'rules' property must be an array");
+	console.error("'rules' property must be an array");
 	fails += 1;
     } else {
 	for (i = 0; i < grammar.rules.length; ++i) {
@@ -320,7 +321,7 @@ function validateGrammar(grammar) {
     if (fails == 0) {
 	console.log("Grammar looks valid!");
     } else {
-	console.log("Detected " + fails + " errors in this grammar.");
+	console.error("Detected " + fails + " errors in this grammar.");
     }
     return fails;
 }
@@ -339,9 +340,9 @@ function validateRule(rule, id) {
 
     // Check name
     if (rule.name == null) {
-	console.log("Warning: " + prefix + " has no 'name' property.");
+	console.error("Warning: " + prefix + " has no 'name' property.");
     } else if (typeof rule.name !== "string") {
-	console.log(prefix + " has a 'name' property but it is not a string.");
+	console.error(prefix + " has a 'name' property but it is not a string.");
 	fails += 1;
 	name = name + " (invalid name)";
     } else {
@@ -350,18 +351,18 @@ function validateRule(rule, id) {
 
     // Check policy
     if (rule.policy == null) {
-        //console.log("Warning: " + prefix + " has no 'policy' property.");
+        //console.error("Warning: " + prefix + " has no 'policy' property.");
     } else if (typeof rule.policy !== "string") {
-	console.log("'policy' property of " + prefix + " must be a string.");
+	console.error("'policy' property of " + prefix + " must be a string.");
 	fails += 1;
     }    
 
     // Check child rules
     if (rule.children == null) {
-        console.log("Warning: " + prefix + " has no 'child' property.");
+        console.error("Warning: " + prefix + " has no 'child' property.");
     }
     if (rule.children.constructor != Array) {
-	console.log("'child' property must be an array.");
+	console.error("'child' property must be an array.");
 	fails += 1;
     } else {
 	for (i = 0; i < rule.children.length; ++i) {
@@ -383,10 +384,10 @@ function validateChild(child, id) {
 
     // Check rule that this child invokes
     if (child.rule == null) {
-        console.log(name + ": No 'rule' property!");
+        console.error(name + ": No 'rule' property!");
         fails += 1;
     } else if (typeof child.rule !== "string") {
-        console.log("'rule' property of " + name + " must be a string.");
+        console.error("'rule' property of " + name + " must be a string.");
         fails += 1;
     }
    
@@ -398,7 +399,7 @@ function validateChild(child, id) {
 
         // Non-number is not.
         if (typeof numTest !== "number") {
-            console.log(name + ": property '" + prop + "' must be a number.");
+            console.error(name + ": property '" + prop + "' must be a number.");
             return 1;
         } else {
             return 0;
@@ -410,14 +411,14 @@ function validateChild(child, id) {
 
         if (arrayTest != null) {
             if (arrayTest.constructor != Array) {
-                console.log(name + " has '" + prop + "' but it is not an array.");
+                console.error(name + " has '" + prop + "' but it is not an array.");
                 fails2 += 1;
             } else if (arrayTest.length != len) {
-                console.log(name + ": '" + prop + "' must be an array of length " + len); 
+                console.error(name + ": '" + prop + "' must be an array of length " + len); 
                 fails2 += 1;
             } else if (typeof arrayTest[0] !== "number" ||
                        typeof arrayTest[1] !== "number") {
-                console.log(name + ": '" + prop + "' contains non-numerical element.");
+                console.error(name + ": '" + prop + "' contains non-numerical element.");
                 fails2 += 1;
             }
         }

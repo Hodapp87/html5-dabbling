@@ -127,7 +127,7 @@ var grammarStringStart2 = '{ \n\
 }; \n\
 ';
 
-var grammarStringStart4 = '(function (t, params) {\n\
+var grammarStringStart = '(function (t, params) {\n\
     var deltaX = param("delta X", 0, 500, 200);\n\
     var deltaY = param("delta Y", 0, 500, 200);\n\
     var delta1 = (1 + Math.sin(t / 100)) / 2;\n\
@@ -178,11 +178,12 @@ var grammarStringStart5 = '(function (t, params) {\n\
 });\n\
 ';
 
-var grammarStringStart = '(function (t, params) {\n\
+var grammarStringStart2 = '(function (t, params) {\n\
     var deltaX = param("delta X", 0, 500, 400);\n\
     var deltaY = param("delta Y", 0, 500, 400);\n\
-  	var rot1 = param("rotation 1", -Math.PI, Math.PI, 0.888);\n\
-  	var rot2 = param("rotation 2", -Math.PI, Math.PI, -0.856);\n\
+  	var rot1 = param("rotation 1", -Math.PI, Math.PI, 1.407);\n\
+  	var rot2 = param("rotation 2", -Math.PI, Math.PI, -0.553);\n\
+  	var r = param("overall rotation", -Math.PI, Math.PI, 1.2566);\n\
   	console.log(rot1);\n\
     console.log(rot2);\n\
     return {\n\
@@ -190,7 +191,7 @@ var grammarStringStart = '(function (t, params) {\n\
 	    background: [0, 0, 0],\n\
         rules: [\n\
             { name: "top",\n\
-             children: [{ rule: "tri", scale: [200, 200], stroke: [0, 0, 1, 1], translate: [deltaX, deltaY]}]},\n\
+             children: [{ rule: "tri", scale: [200, 200], rotate: r, stroke: [0, 0, 1, 1], translate: [deltaX, deltaY]}]},\n\
             { name: "tri",\n\
               children: [{ rule: "triangle" },\n\
                          { rule: "branch"}]},\n\

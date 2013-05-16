@@ -180,19 +180,17 @@ function param(name, min, max, default_) {
 }
 
 function render() {
+    var seed, startMs, dt, prims;
 
     evalGrammar();
 
-    var time = new Date();
-    var seed;
-
     seed = document.getElementById("seed").value;
 
-    dt = (time.getTime() - t) / 1000;
-    t = time.getTime();
-    
+    startMs = (new Date).getTime();
     grammarParse.renderer = activeRenderer;
-    grammarParse.drawRuleIterative(grammar, seed);
+    prims = grammarParse.drawRuleIterative(grammar, seed);
+    dt = ((new Date).getTime() - startMs);
+    console.log("Drew " + prims + " primitives in " + dt + " ms (" + Math.floor(prims/dt*1000) + " prims/s)");
 
     //window.requestAnimFrame(step);
 }
